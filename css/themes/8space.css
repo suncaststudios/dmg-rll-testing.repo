@@ -1,0 +1,208 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ██  8SPACE  — retro pixel-art arcade cosmos
+   Press Start 2P headers · Share Tech Mono body (readability at small size)
+   Palette: void black · arcade cyan · hot magenta · pixel white
+   Key traits: zero border-radius, hard 2-tone "pixel bevel" shadows
+   instead of blur, a literal square-pixel starfield with stepped
+   (non-eased) twinkle, and a blinking terminal cursor on the title.
+═══════════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+body.theme-8space {
+    font-family: 'Share Tech Mono', monospace !important;
+    background: #05030d !important;
+    image-rendering: pixelated !important;
+}
+
+body.theme-8space #embers { display: none !important; }
+
+/* Signature: a literal square-pixel starfield, stepped (not eased) twinkle */
+body.theme-8space::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background-image:
+        linear-gradient(#00e5ff 2px, transparent 2px),
+        linear-gradient(#ff2ec4 2px, transparent 2px),
+        linear-gradient(#fff 2px, transparent 2px);
+    background-size: 3px 3px;
+    background-position: 12% 18%, 47% 62%, 81% 34%;
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    box-shadow:
+        60px 40px 0 0 #fff, 140px 90px 0 0 #00e5ff, 220px 30px 0 0 #fff,
+        310px 140px 0 0 #ff2ec4, 40px 200px 0 0 #fff, 400px 60px 0 0 #fff,
+        480px 180px 0 0 #00e5ff, 90px 260px 0 0 #fff, 560px 110px 0 0 #fff,
+        620px 220px 0 0 #ff2ec4, 180px 320px 0 0 #fff, 700px 40px 0 0 #fff;
+    animation: pixel-twinkle 1.6s steps(2) infinite;
+}
+@keyframes pixel-twinkle {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: .35; }
+}
+
+body.theme-8space #game-container {
+    border: 3px solid #00e5ff !important;
+    border-radius: 0 !important;
+    box-shadow:
+        4px 4px 0 0 #ff2ec4,
+        0 0 0 4px #05030d,
+        0 0 90px rgba(0,0,0,.98) !important;
+}
+body.theme-8space #game-container::before {
+    background: #060412 !important;
+    border-radius: 0 !important;
+}
+
+body.theme-8space #menu-bg {
+    background: linear-gradient(180deg, #05030d, #08051a 40%, #050310) !important;
+}
+
+body.theme-8space .screen {
+    background: #07051a !important;
+    color: #a0e8ff !important;
+    border-radius: 0 !important;
+}
+
+body.theme-8space #menu-left-panel {
+    background: #060414 !important;
+    border-right: 3px solid #1a1440 !important;
+    border-radius: 0 !important;
+}
+body.theme-8space #menu-left-panel::after {
+    background: repeating-linear-gradient(180deg, #00e5ff 0 6px, #ff2ec4 6px 12px) !important;
+    width: 3px !important;
+}
+
+/* Title — chunky pixel font with a blinking terminal cursor */
+body.theme-8space #menu-main h1 {
+    font-family: 'Press Start 2P', monospace !important;
+    font-weight: 400 !important;
+    letter-spacing: 2px !important;
+    font-size: clamp(14px, 2.4vw, 28px) !important;
+    line-height: 1.6 !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: #00e5ff !important;
+    color: #00e5ff !important;
+    text-shadow: 3px 3px 0 #ff2ec4, 6px 6px 0 rgba(0,0,0,.6) !important;
+    animation: none !important;
+    filter: none !important;
+}
+body.theme-8space #menu-main h1::after {
+    content: '_';
+    color: #fff;
+    animation: pixel-cursor-blink 1s steps(1) infinite;
+}
+@keyframes pixel-cursor-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+body.theme-8space #menu-main .subtitle {
+    font-family: 'Press Start 2P', monospace !important;
+    color: #ff2ec4 !important;
+    letter-spacing: 1px !important;
+    font-size: 7px !important;
+    font-weight: 400 !important;
+}
+
+/* Nav buttons — hard pixel bevel, no gradients or blur */
+body.theme-8space .menu-nav-btn {
+    background: #0a0722 !important;
+    border: 2px solid #00e5ff !important;
+    border-left: 4px solid #00e5ff !important;
+    border-radius: 0 !important;
+    color: #7fd8ec !important;
+    font-family: 'Share Tech Mono', monospace !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    box-shadow: 3px 3px 0 0 #1a0f38 !important;
+}
+body.theme-8space .menu-nav-btn:hover {
+    background: #131033 !important;
+    border-color: #ff2ec4 !important;
+    border-left-color: #ff2ec4 !important;
+    color: #ffd0f0 !important;
+    box-shadow: 3px 3px 0 0 #ff2ec4 !important;
+    transform: translate(-1px, -1px) !important;
+}
+body.theme-8space .menu-nav-btn.primary-nav {
+    border-left-color: #fff200 !important;
+    color: #fff200 !important;
+}
+body.theme-8space .mnb-icon { color: #00e5ff !important; }
+body.theme-8space .mnb-arrow { color: #ff2ec4 !important; }
+
+body.theme-8space .rune-cell { color: rgba(0,229,255,.2) !important; text-shadow: none !important; }
+body.theme-8space .deco-rule { background: repeating-linear-gradient(90deg, #00e5ff 0 6px, transparent 6px 12px) !important; height: 3px !important; }
+body.theme-8space .menu-divider { background: repeating-linear-gradient(90deg, #ff2ec4 0 5px, transparent 5px 10px) !important; height: 2px !important; }
+
+body.theme-8space .screen h2, body.theme-8space .screen h3 {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 12px !important; letter-spacing: 1px !important; line-height: 1.7 !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: #00e5ff !important;
+    color: #00e5ff !important;
+    text-shadow: 2px 2px 0 #ff2ec4 !important;
+}
+
+body.theme-8space .btn {
+    background: #0a0722 !important;
+    border: 2px solid #00e5ff !important;
+    color: #7fd8ec !important;
+    border-radius: 0 !important;
+    font-family: 'Share Tech Mono', monospace !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    font-size: 9px !important;
+    box-shadow: 2px 2px 0 0 #1a0f38 !important;
+}
+body.theme-8space .btn:hover {
+    border-color: #ff2ec4 !important;
+    color: #ffd0f0 !important;
+    box-shadow: 2px 2px 0 0 #ff2ec4 !important;
+    transform: translate(-1px, -1px) !important;
+}
+body.theme-8space .btn.primary {
+    background: #130c33 !important;
+    border-color: #fff200 !important;
+    color: #fff200 !important;
+    box-shadow: 2px 2px 0 0 #7a6600 !important;
+}
+
+body.theme-8space .hud {
+    background: #0a0722 !important;
+    border: 2px solid #1a1440 !important;
+    border-radius: 0 !important;
+}
+body.theme-8space .hud-name { font-family: 'Press Start 2P', monospace !important; font-size: 7px !important; letter-spacing: 0 !important; color: #7fd8ec !important; }
+body.theme-8space #turn-indicator { font-family: 'Press Start 2P', monospace !important; letter-spacing: 1px !important; color: #fff200 !important; font-size: 10px !important; }
+body.theme-8space .hp-fill { background: repeating-linear-gradient(90deg, #ff2ec4 0 5px, #d6009e 5px 6px) !important; }
+body.theme-8space .hp-bar { border-radius: 0 !important; border: 2px solid #1a1440 !important; }
+
+body.theme-8space .card {
+    border: 2px solid #1a1440 !important;
+    background: #0a0722 !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0 0 #05030d !important;
+}
+body.theme-8space .card:hover {
+    border-color: #00e5ff !important;
+    box-shadow: 3px 3px 0 0 #00e5ff !important;
+    transform: translate(-1px, -1px) !important;
+}
+body.theme-8space .c-name { font-family: 'Press Start 2P', monospace !important; font-size: 6px !important; letter-spacing: 0 !important; color: #7fd8ec !important; line-height: 1.6 !important; }
+body.theme-8space .c-desc { color: rgba(160,230,255,.7) !important; font-family: 'Share Tech Mono', monospace !important; }
+
+body.theme-8space .settings-section-label { color: #ff2ec4 !important; font-family: 'Press Start 2P', monospace !important; letter-spacing: 0 !important; font-size: 7px !important; }
+body.theme-8space .settings-opt-btn { background: #0a0722 !important; border: 2px solid #1a1440 !important; color: #7fa8bc !important; border-radius: 0 !important; }
+body.theme-8space .settings-opt-btn.active { background: #131033 !important; border-color: #00e5ff !important; color: #a0e8ff !important; }
+body.theme-8space .settings-slider { accent-color: #00e5ff !important; }
+body.theme-8space .settings-label, body.theme-8space .settings-check { color: #7fd8ec !important; font-family: 'Share Tech Mono', monospace !important; }
+body.theme-8space .settings-hint { color: rgba(127,216,236,.5) !important; }
+
+body.theme-8space { --intro-bright:#a0e8ff; --intro-mid:#00e5ff; --intro-dim:#0d3a48; --intro-rule:rgba(0,229,255,.28); --intro-sep:#05030d; }
+body.theme-8space #forfeit-btn { background: #2a0a1a !important; border: 2px solid #ff2ec4 !important; color: #ff88d0 !important; border-radius: 0 !important; }
+body.theme-8space #forfeit-popup-box { background: #0a0722 !important; border: 3px solid #00e5ff !important; border-radius: 0 !important; box-shadow: 4px 4px 0 0 #ff2ec4 !important; }

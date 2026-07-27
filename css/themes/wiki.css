@@ -1,0 +1,257 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ██  WIKI  — Wikipedia light, encyclopedic, editorial serif
+   Linux Libertine / Georgia headers · system serif body
+   Palette: white · #f8f9fa light gray · #a2a9b1 border ·
+            #3366cc link blue · #202122 dark text · #54595d dim text
+   Signature: authentic "[edit]" tags floating beside section headings
+═══════════════════════════════════════════════════════════════════ */
+body.theme-wiki {
+    font-family: 'Linux Libertine', Georgia, 'Times New Roman', serif !important;
+    background: #f8f9fa !important;
+    color: #202122 !important;
+}
+
+body.theme-wiki #embers { display: none !important; }
+body.theme-wiki #title-sigil { display: none !important; }
+
+body.theme-wiki #game-container {
+    border: 1px solid #a2a9b1 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1) !important;
+    border-radius: 0 !important;
+}
+body.theme-wiki #game-container::before { background: #ffffff !important; border-radius: 0 !important; }
+body.theme-wiki #game-container::after  { display: none !important; }
+
+body.theme-wiki #menu-bg { background: #f8f9fa !important; }
+
+body.theme-wiki .screen {
+    background: #ffffff !important;
+    color: #202122 !important;
+    border-radius: 0 !important;
+}
+
+body.theme-wiki #menu-left-panel {
+    background: #f8f9fa !important;
+    border-right: 1px solid #a2a9b1 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+body.theme-wiki #menu-left-panel::before,
+body.theme-wiki #menu-left-panel::after { display: none !important; }
+
+body.theme-wiki #menu-main h1 {
+    font-family: 'Linux Libertine', Georgia, 'Times New Roman', serif !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    letter-spacing: 0 !important;
+    font-size: clamp(26px, 4vw, 50px) !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: #202122 !important;
+    color: #202122 !important;
+    text-shadow: none !important;
+    animation: none !important;
+    filter: none !important;
+    border-bottom: 1px solid #a2a9b1 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 4px !important;
+    position: relative !important;
+}
+/* Signature: the classic Wikipedia "[edit]" tag, right where a real
+   editor would expect to see one on a page title */
+body.theme-wiki #menu-main h1::after {
+    content: '[ edit ]';
+    position: absolute; right: 4px; bottom: 10px;
+    font-family: Georgia, serif; font-size: 11px; font-weight: 400;
+    color: #3366cc; letter-spacing: 0; text-decoration: underline;
+}
+body.theme-wiki #menu-main .subtitle {
+    font-family: Georgia, serif !important;
+    color: #54595d !important;
+    font-style: italic !important;
+    letter-spacing: 0 !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+}
+
+body.theme-wiki .menu-nav-btn {
+    background: none !important;
+    border: none !important;
+    border-bottom: 1px solid #eaecf0 !important;
+    border-left: none !important;
+    border-radius: 0 !important;
+    color: #3366cc !important;
+    font-family: Georgia, serif !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-align: left !important;
+    box-shadow: none !important;
+    padding: 9px 14px !important;
+    clip-path: none !important;
+}
+body.theme-wiki .menu-nav-btn:hover {
+    background: #eaf3fb !important;
+    color: #2455c3 !important;
+    text-decoration: underline !important;
+}
+body.theme-wiki .menu-nav-btn.primary-nav { color: #006400 !important; font-weight: 600 !important; }
+body.theme-wiki .mnb-icon { display: none !important; }
+body.theme-wiki .mnb-arrow { color: #a2a9b1 !important; font-size: 10px !important; }
+
+body.theme-wiki .rune-cell { display: none !important; }
+body.theme-wiki .deco-rule { background: #a2a9b1 !important; height: 1px !important; }
+body.theme-wiki .deco-rule::before { display: none !important; }
+body.theme-wiki .menu-divider { background: #eaecf0 !important; height: 1px !important; }
+
+body.theme-wiki .screen h2, body.theme-wiki .screen h3 {
+    font-family: 'Linux Libertine', Georgia, serif !important;
+    font-size: 22px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: #202122 !important;
+    color: #202122 !important;
+    text-shadow: none !important;
+    border-bottom: 1px solid #a2a9b1 !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 8px !important;
+    position: relative !important;
+}
+body.theme-wiki .screen h2::after, body.theme-wiki .screen h3::after {
+    content: '[edit]';
+    float: right;
+    font-family: Georgia, serif; font-size: 10px; font-weight: 400;
+    color: #3366cc; text-decoration: underline;
+}
+body.theme-wiki .screen-subtitle { color: #54595d !important; font-style: italic !important; }
+
+body.theme-wiki .btn {
+    background: #f8f9fa !important;
+    border: 1px solid #a2a9b1 !important;
+    border-radius: 2px !important;
+    color: #202122 !important;
+    font-family: Georgia, serif !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    clip-path: none !important;
+    box-shadow: 0 1px 0 rgba(0,0,0,.07) !important;
+    padding: 7px 18px !important;
+}
+body.theme-wiki .btn:hover { background: #eaecf0 !important; border-color: #72777d !important; }
+body.theme-wiki .btn.primary { background: #3366cc !important; border-color: #2a55c0 !important; color: #fff !important; }
+body.theme-wiki .btn.primary:hover { background: #2455c3 !important; }
+
+body.theme-wiki .hud {
+    background: #fff !important;
+    border: 1px solid #a2a9b1 !important;
+    border-radius: 0 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08) !important;
+    color: #202122 !important;
+}
+body.theme-wiki .hud-name { font-family: 'Linux Libertine', Georgia, serif !important; color: #202122 !important; font-size: 13px !important; letter-spacing: 0 !important; font-weight: 600 !important; }
+body.theme-wiki .hp-label { color: #54595d !important; font-family: Georgia, serif !important; }
+body.theme-wiki .hp-bar { border: 1px solid #a2a9b1 !important; border-radius: 0 !important; }
+body.theme-wiki .hp-fill { background: #3366cc !important; border-radius: 0 !important; }
+body.theme-wiki #turn-indicator { font-family: 'Linux Libertine', Georgia, serif !important; color: #202122 !important; font-size: 13px !important; letter-spacing: 1px !important; }
+
+body.theme-wiki .card {
+    background: #ffffff !important;
+    border: 1px solid #a2a9b1 !important;
+    border-radius: 0 !important;
+    color: #202122 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.07) !important;
+}
+body.theme-wiki .card:hover {
+    border-color: #72777d !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1) !important;
+    transform: none !important;
+}
+body.theme-wiki .c-name { color: #202122 !important; font-family: 'Linux Libertine', Georgia, serif !important; font-weight: 600 !important; font-size: 12px !important; letter-spacing: 0 !important; text-transform: none !important; }
+body.theme-wiki .c-desc { color: #54595d !important; font-family: Georgia, serif !important; font-style: italic !important; }
+body.theme-wiki .c-desc::before { content: '"citation needed" — '; color: #a2a9b1 !important; font-size: .85em; }
+body.theme-wiki .badge { background: #eaecf0 !important; border: 1px solid #a2a9b1 !important; color: #54595d !important; border-radius: 2px !important; }
+
+body.theme-wiki .settings-section-label {
+    color: #54595d !important; font-family: Georgia, serif !important;
+    letter-spacing: 0 !important; font-size: 11px !important; text-transform: uppercase !important;
+}
+body.theme-wiki .settings-opt-btn {
+    background: #f8f9fa !important; border: 1px solid #a2a9b1 !important;
+    color: #202122 !important; border-radius: 2px !important;
+    font-family: Georgia, serif !important; font-size: 11px !important;
+    clip-path: none !important; box-shadow: 0 1px 0 rgba(0,0,0,.06) !important;
+}
+body.theme-wiki .settings-opt-btn:hover { background: #eaecf0 !important; }
+body.theme-wiki .settings-opt-btn.active { background: #3366cc !important; border-color: #2a55c0 !important; color: #fff !important; }
+body.theme-wiki .settings-slider { accent-color: #3366cc !important; }
+body.theme-wiki .settings-label, body.theme-wiki .settings-check { color: #202122 !important; font-family: Georgia, serif !important; font-size: 12px !important; }
+body.theme-wiki .settings-hint { color: #54595d !important; font-family: Georgia, serif !important; font-size: 11px !important; }
+body.theme-wiki .settings-select { background: #f8f9fa !important; border: 1px solid #a2a9b1 !important; color: #202122 !important; border-radius: 2px !important; }
+
+body.theme-wiki .auth-card { background: #fff !important; border: 1px solid #a2a9b1 !important; border-radius: 2px !important; box-shadow: 0 1px 4px rgba(0,0,0,.1) !important; }
+body.theme-wiki .auth-btn { background: #3366cc !important; border: 1px solid #2a55c0 !important; color: #fff !important; border-radius: 2px !important; font-family: Georgia, serif !important; clip-path: none !important; }
+body.theme-wiki .auth-btn.secondary { background: #f8f9fa !important; border-color: #a2a9b1 !important; color: #202122 !important; }
+body.theme-wiki .auth-btn-discord { background: #5865f2 !important; border-color: #4752c4 !important; border-radius: 2px !important; }
+body.theme-wiki .auth-input { background: #fff !important; border: 1px solid #a2a9b1 !important; color: #202122 !important; border-radius: 2px !important; font-family: Georgia, serif !important; }
+body.theme-wiki .auth-label { color: #202122 !important; font-family: Georgia, serif !important; }
+body.theme-wiki .auth-logo { color: #202122 !important; font-family: 'Linux Libertine', Georgia, serif !important; -webkit-text-fill-color: #202122 !important; animation: none !important; filter: none !important; }
+body.theme-wiki .auth-subtitle { color: #54595d !important; font-style: italic !important; }
+
+body.theme-wiki .lb-tab, body.theme-wiki .clubs-tab, body.theme-wiki .shop-tab, body.theme-wiki .settings-tab {
+    font-family: Georgia, serif !important; color: #3366cc !important; font-size: 12px !important;
+}
+body.theme-wiki .lb-tab.active, body.theme-wiki .clubs-tab.active, body.theme-wiki .shop-tab.active, body.theme-wiki .settings-tab.active {
+    color: #202122 !important; border-bottom-color: #202122 !important;
+}
+
+body.theme-wiki .shop-title { font-family: 'Linux Libertine', Georgia, serif !important; -webkit-text-fill-color: #202122 !important; background: none !important; }
+body.theme-wiki .shop-subtitle { color: #54595d !important; font-style: italic !important; }
+body.theme-wiki .shop-item { background: #fff !important; border: 1px solid #a2a9b1 !important; border-radius: 2px !important; }
+body.theme-wiki .shop-item:hover { border-color: #72777d !important; transform: none !important; }
+body.theme-wiki .shop-item-name { color: #202122 !important; font-family: Georgia, serif !important; }
+body.theme-wiki .shop-btn-gold { background: #3366cc !important; border-color: #2a55c0 !important; color: #fff !important; border-radius: 2px !important; }
+
+body.theme-wiki #corner-pill {
+    background: #f8f9fa !important;
+    border-color: #a2a9b1 !important;
+    border-radius: 2px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1) !important;
+}
+body.theme-wiki #corner-pill button { color: #3366cc !important; font-family: Georgia, serif !important; }
+body.theme-wiki #corner-pill button:hover { color: #2455c3 !important; background: #eaecf0 !important; text-decoration: underline !important; }
+body.theme-wiki #corner-level-badge { color: #202122 !important; font-family: 'Linux Libertine', Georgia, serif !important; font-weight: 600 !important; }
+body.theme-wiki .corner-pill-divider { background: #a2a9b1 !important; }
+
+body.theme-wiki #changelog-panel {
+    background: #ffffff !important;
+    border: 1px solid #a2a9b1 !important;
+    border-radius: 0 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1) !important;
+}
+body.theme-wiki .cl-titlebar-text { color: #202122 !important; font-family: 'Linux Libertine', Georgia, serif !important; }
+body.theme-wiki .cl-entry { border-color: #eaecf0 !important; }
+body.theme-wiki .cl-version { color: #3366cc !important; }
+body.theme-wiki .cl-name { color: #202122 !important; font-weight: 600 !important; }
+body.theme-wiki .cl-desc { color: #54595d !important; font-style: italic !important; }
+
+body.theme-wiki .social-btn { background: #f8f9fa !important; border-color: #a2a9b1 !important; color: #3366cc !important; border-radius: 2px !important; }
+body.theme-wiki .social-btn:hover { background: #eaecf0 !important; border-color: #72777d !important; }
+
+body.theme-wiki .start-mode-card { background: #ffffff !important; border-color: #a2a9b1 !important; border-radius: 2px !important; box-shadow: 0 1px 3px rgba(0,0,0,.08) !important; }
+body.theme-wiki .smc-label-bar { background: #f8f9fa !important; border-bottom-color: #a2a9b1 !important; border-radius: 2px 2px 0 0 !important; }
+body.theme-wiki .smc-label { color: #202122 !important; font-family: Georgia, serif !important; letter-spacing: 0 !important; }
+body.theme-wiki .smc-desc { color: #54595d !important; font-family: Georgia, serif !important; font-style: italic !important; }
+
+body.theme-wiki { --intro-bright:#202122; --intro-mid:#54595d; --intro-dim:#a2a9b1; --intro-rule:rgba(162,169,177,.4); --intro-sep:#eaecf0; }
+
+/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
+   Wiki is a neutral light/editorial theme — invert + desaturate the
+   default dark-brown panel toward Wikipedia's white/gray/blue-link look. ── */
+body.theme-wiki #menu-profile, body.theme-wiki #menu-tournament,
+body.theme-wiki .chat-msg, body.theme-wiki .translate-btn {
+    filter: invert(1) hue-rotate(180deg) saturate(0.25) brightness(1.3) contrast(0.9) !important;
+}

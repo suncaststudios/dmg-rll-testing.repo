@@ -1,0 +1,305 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ██  SCOURGE  — Necromancer / The Watching Eye
+   (Name kept as "Scourge" — visual identity reworked into a gothic
+   necromancer theme: black & sickly green, with a recurring watching
+   eye motif — 👁 — woven through titles, buttons, and card corners.)
+   MedievalSharp headers · Rajdhani body
+   Palette: void black #050603 · grave green #0d2818 · plague glow
+            #6fe05a · bone #cfd6c2 · deep rot #13381f
+   Signature: a slow-blinking 👁 watches from the title and card corners
+═══════════════════════════════════════════════════════════════════ */
+body.theme-scourge {
+    font-family: 'Rajdhani', sans-serif !important;
+    background: #050603 !important;
+}
+
+body.theme-scourge #embers {
+    filter: hue-rotate(70deg) saturate(2.4) brightness(0.4) !important;
+}
+
+/* Signature: a faint watching eye drifting in the void behind everything */
+body.theme-scourge::before {
+    content: '👁';
+    position: fixed; top: 14%; right: 8%; pointer-events: none; z-index: 0;
+    font-size: 140px; color: rgba(111,224,90,.05);
+    filter: blur(1px);
+    animation: scourge-watch 8s ease-in-out infinite;
+}
+@keyframes scourge-watch {
+    0%, 100% { opacity: .4; transform: scale(1); }
+    50%      { opacity: .85; transform: scale(1.05); }
+}
+
+body.theme-scourge #game-container {
+    border-color: #0d2818 !important;
+    box-shadow:
+        0 0 0 1px #17351f,
+        0 0 100px rgba(0,0,0,.99),
+        0 0 60px rgba(111,224,90,.08),
+        inset 0 0 280px rgba(0,0,0,.97) !important;
+}
+body.theme-scourge #game-container::before {
+    background: radial-gradient(ellipse at 50% 0%, #08120a 0%, #060907 58%, #030402 100%) !important;
+}
+
+body.theme-scourge #menu-bg {
+    background:
+        radial-gradient(ellipse at 50% 45%, rgba(20,60,32,.22) 0%, transparent 55%),
+        radial-gradient(ellipse at 20% 80%, rgba(111,224,90,.06) 0%, transparent 40%),
+        linear-gradient(180deg, #050603, #070a06 30%, #050603 65%, #030402) !important;
+}
+
+body.theme-scourge .screen {
+    background: radial-gradient(ellipse at 50% 15%, rgba(10,20,12,.99), rgba(3,4,3,.997)) !important;
+    color: #b8c4ac !important;
+}
+
+body.theme-scourge #menu-left-panel {
+    background: linear-gradient(170deg, rgba(9,16,10,.99), rgba(4,6,4,.997)) !important;
+    border-right: 1px solid rgba(111,224,90,.16) !important;
+}
+body.theme-scourge #menu-left-panel::after {
+    background: linear-gradient(180deg,
+        transparent,
+        rgba(111,224,90,.3),
+        rgba(20,120,50,.35),
+        rgba(111,224,90,.3),
+        transparent) !important;
+}
+
+/* Title — a name spoken in the dark, watched by the eye */
+body.theme-scourge #menu-main h1 {
+    font-family: 'MedievalSharp', Georgia, serif !important;
+    font-style: normal !important;
+    font-weight: 400 !important;
+    letter-spacing: 3px !important;
+    font-size: clamp(24px, 3.8vw, 48px) !important;
+    background: linear-gradient(180deg, #eaf5dc 0%, #a8e090 22%, #6fe05a 48%, #2d7a1e 76%, #0d2818 100%) !important;
+    -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
+    animation: scourge-eye-pulse 5s ease-in-out infinite !important;
+    position: relative !important;
+}
+body.theme-scourge #menu-main h1::before {
+    content: '👁';
+    position: absolute; left: -34px; top: 50%; transform: translateY(-52%);
+    font-size: .42em; -webkit-text-fill-color: initial;
+    filter: drop-shadow(0 0 6px rgba(111,224,90,.85));
+    animation: scourge-blink 6s ease-in-out infinite;
+}
+body.theme-scourge #menu-main h1::after {
+    content: '👁';
+    position: absolute; right: -34px; top: 50%; transform: translateY(-52%) scaleX(-1);
+    font-size: .42em; -webkit-text-fill-color: initial;
+    filter: drop-shadow(0 0 6px rgba(111,224,90,.85));
+    animation: scourge-blink 6s ease-in-out infinite reverse;
+}
+@keyframes scourge-eye-pulse {
+    0%,100% { filter: drop-shadow(0 0 10px rgba(111,224,90,.4)) drop-shadow(0 4px 0 #000); }
+    45%     { filter: drop-shadow(0 0 30px rgba(120,235,100,.75)) drop-shadow(0 0 10px rgba(20,120,50,.3)) drop-shadow(0 4px 0 #000); }
+    85%     { filter: drop-shadow(0 0 14px rgba(111,224,90,.45)) drop-shadow(0 4px 0 #000); }
+}
+@keyframes scourge-blink {
+    0%, 92%, 100% { transform: translateY(-52%) scaleY(1); }
+    96%           { transform: translateY(-52%) scaleY(0.1); }
+}
+body.theme-scourge #menu-main .subtitle {
+    font-family: 'Rajdhani', sans-serif !important;
+    color: rgba(111,224,90,.5) !important;
+    letter-spacing: 7px !important;
+    font-size: 8px !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+}
+
+body.theme-scourge .menu-nav-btn {
+    background: linear-gradient(100deg, rgba(10,16,10,.94), rgba(5,8,5,.97)) !important;
+    border: 1px solid rgba(111,224,90,.16) !important;
+    border-left: 2px solid rgba(111,224,90,.4) !important;
+    border-radius: 1px !important;
+    color: #8fa886 !important;
+    font-family: 'Rajdhani', sans-serif !important;
+    font-weight: 500 !important;
+    letter-spacing: 2.5px !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+}
+body.theme-scourge .menu-nav-btn:hover {
+    background: linear-gradient(100deg, rgba(14,28,16,.97), rgba(7,12,7,.99)) !important;
+    border-color: rgba(111,224,90,.55) !important;
+    border-left-color: rgba(130,240,105,.85) !important;
+    color: #cfe8c0 !important;
+    box-shadow: 0 2px 16px rgba(111,224,90,.12) !important;
+}
+body.theme-scourge .menu-nav-btn.primary-nav {
+    border-left-color: rgba(90,20,20,.85) !important;
+    color: rgba(180,90,90,.9) !important;
+}
+body.theme-scourge .mnb-icon { color: rgba(111,224,90,.55) !important; }
+body.theme-scourge .mnb-arrow { color: rgba(111,224,90,.35) !important; }
+
+body.theme-scourge .rune-cell {
+    color: rgba(111,224,90,.16) !important;
+    text-shadow: 0 0 6px rgba(111,224,90,.45), 0 0 20px rgba(111,224,90,.18) !important;
+}
+body.theme-scourge .deco-rule {
+    background: linear-gradient(90deg, transparent, rgba(111,224,90,.34), rgba(130,240,105,.55), rgba(111,224,90,.34), transparent) !important;
+}
+body.theme-scourge .menu-divider {
+    background: linear-gradient(90deg, rgba(111,224,90,.34), rgba(90,20,20,.18), transparent) !important;
+}
+
+body.theme-scourge .screen h2, body.theme-scourge .screen h3 {
+    font-family: 'MedievalSharp', Georgia, serif !important;
+    font-style: normal !important;
+    font-size: 18px !important;
+    letter-spacing: 2px !important;
+    background: linear-gradient(180deg, #dcefce, #6fe05a, #1f5a14) !important;
+    -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
+}
+body.theme-scourge .screen h2::before, body.theme-scourge .screen h3::before {
+    content: '👁 ';
+    -webkit-text-fill-color: rgba(111,224,90,.7);
+    font-size: .7em;
+}
+
+/* Buttons — void with plague-green border, small eye watermark */
+body.theme-scourge .btn {
+    background: linear-gradient(180deg, rgba(13,20,13,.97), rgba(6,9,6,.99)) !important;
+    border: 1px solid rgba(111,224,90,.32) !important;
+    color: #9cb890 !important;
+    border-radius: 1px !important;
+    font-family: 'Rajdhani', sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: 2px !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+}
+body.theme-scourge .btn:hover {
+    border-color: rgba(130,240,105,.68) !important;
+    color: #cfe8c0 !important;
+    box-shadow: 0 0 14px rgba(111,224,90,.16) !important;
+}
+body.theme-scourge .btn.primary {
+    background: linear-gradient(180deg, rgba(15,30,16,.98), rgba(7,13,7,.99)) !important;
+    border-color: rgba(130,240,105,.7) !important;
+    color: #cfe8c0 !important;
+    box-shadow: 0 0 12px rgba(111,224,90,.2) !important;
+}
+
+body.theme-scourge .hud {
+    background: linear-gradient(160deg, rgba(9,14,9,.98), rgba(4,6,4,.99)) !important;
+    border: 1px solid rgba(111,224,90,.14) !important;
+    box-shadow: 0 0 10px rgba(111,224,90,.08) !important;
+}
+body.theme-scourge .hud-name {
+    font-family: 'Rajdhani', sans-serif !important;
+    font-weight: 700 !important;
+    color: #9cb890 !important;
+    letter-spacing: 3px !important;
+    text-transform: uppercase !important;
+    font-size: 9px !important;
+}
+body.theme-scourge #turn-indicator {
+    font-family: 'MedievalSharp', serif !important;
+    letter-spacing: 2px !important;
+    color: #6fe05a !important;
+    font-size: 15px !important;
+}
+body.theme-scourge #turn-indicator::before { content: '👁 '; font-size: .75em; }
+body.theme-scourge .hp-fill { background: linear-gradient(90deg, #1a4020, #6fe05a) !important; }
+body.theme-scourge .hp-bar { border-color: rgba(111,224,90,.18) !important; }
+
+/* Cards — a small watching eye in the corner of every card */
+body.theme-scourge .card {
+    border: 1px solid rgba(111,224,90,.18) !important;
+    background: linear-gradient(155deg, rgba(11,17,11,.98), rgba(4,6,4,.99)) !important;
+    border-radius: 1px !important;
+    position: relative !important;
+}
+body.theme-scourge .card::after {
+    content: '👁';
+    position: absolute; top: 3px; right: 4px;
+    font-size: 9px; color: rgba(111,224,90,.28);
+    pointer-events: none;
+}
+body.theme-scourge .card:hover {
+    border-color: rgba(130,240,105,.5) !important;
+    box-shadow: 0 0 16px rgba(111,224,90,.14), 0 0 4px rgba(90,20,20,.1) !important;
+}
+body.theme-scourge .card:hover::after { color: rgba(130,240,105,.7); }
+body.theme-scourge .c-name {
+    font-family: 'MedievalSharp', Georgia, serif !important;
+    font-weight: 400 !important;
+    color: #b8d4a8 !important;
+    letter-spacing: 1px !important;
+    font-size: 11px !important;
+}
+body.theme-scourge .c-desc { color: rgba(140,180,120,.55) !important; font-family: 'Rajdhani', sans-serif !important; }
+
+body.theme-scourge .settings-section-label { color: #4a7838 !important; font-family: 'Rajdhani', sans-serif !important; letter-spacing: 4px !important; font-weight: 600 !important; font-size: 8px !important; }
+body.theme-scourge .settings-opt-btn { background: rgba(8,13,8,.94) !important; border: 1px solid rgba(111,224,90,.18) !important; color: #6a8a5c !important; border-radius: 1px !important; font-family: 'Rajdhani', sans-serif !important; font-weight: 500 !important; }
+body.theme-scourge .settings-opt-btn.active { background: rgba(15,28,15,.99) !important; border-color: rgba(130,240,105,.7) !important; color: #cfe8c0 !important; }
+body.theme-scourge .settings-slider { accent-color: #6fe05a !important; }
+body.theme-scourge .settings-label, body.theme-scourge .settings-check { color: #8aa878 !important; font-family: 'Rajdhani', sans-serif !important; }
+body.theme-scourge .settings-hint { color: rgba(120,150,100,.5) !important; }
+
+body.theme-scourge .auth-logo { font-family: 'MedievalSharp', Georgia, serif !important; }
+body.theme-scourge .auth-btn { border-radius: 1px !important; }
+
+body.theme-scourge .lb-tab, body.theme-scourge .clubs-tab, body.theme-scourge .shop-tab {
+    color: #4a7838 !important;
+    font-family: 'Rajdhani', sans-serif !important;
+    letter-spacing: 2px !important;
+}
+body.theme-scourge .lb-tab.active, body.theme-scourge .clubs-tab.active, body.theme-scourge .shop-tab.active {
+    color: #6fe05a !important;
+    border-bottom-color: #6fe05a !important;
+}
+
+body.theme-scourge .shop-title { font-family: 'MedievalSharp', Georgia, serif !important; }
+
+body.theme-scourge #corner-pill {
+    background: rgba(6,10,6,.92) !important;
+    border-color: rgba(111,224,90,.28) !important;
+}
+body.theme-scourge #corner-pill button { color: #8fa886 !important; font-family: 'Rajdhani', sans-serif !important; }
+body.theme-scourge #corner-pill button:hover { color: #cfe8c0 !important; background: rgba(111,224,90,.1) !important; }
+body.theme-scourge #corner-level-badge { color: #6fe05a !important; font-family: 'MedievalSharp', serif !important; }
+body.theme-scourge .corner-pill-divider { background: rgba(111,224,90,.22) !important; }
+
+body.theme-scourge #changelog-panel {
+    background: linear-gradient(160deg, rgba(9,14,9,.98), rgba(4,6,4,.99)) !important;
+    border-color: rgba(111,224,90,.28) !important;
+}
+body.theme-scourge .cl-titlebar-text { color: #6fe05a !important; font-family: 'MedievalSharp', serif !important; }
+body.theme-scourge .cl-titlebar-text::before { content: '👁 '; }
+body.theme-scourge .cl-entry { border-color: rgba(111,224,90,.14) !important; }
+body.theme-scourge .cl-version { color: #4a7838 !important; }
+body.theme-scourge .cl-name { color: #b8d4a8 !important; }
+body.theme-scourge .cl-desc { color: rgba(140,180,120,.55) !important; }
+
+body.theme-scourge .social-btn { background: rgba(6,10,6,.85) !important; border-color: rgba(111,224,90,.22) !important; color: rgba(140,180,120,.6) !important; }
+body.theme-scourge .social-btn:hover { border-color: rgba(130,240,105,.6) !important; color: #cfe8c0 !important; }
+
+body.theme-scourge .start-mode-card { background: linear-gradient(160deg, rgba(11,17,11,.96), rgba(5,7,5,.98)) !important; border-color: rgba(111,224,90,.28) !important; }
+body.theme-scourge .smc-label-bar { background: rgba(111,224,90,.06) !important; border-bottom-color: rgba(111,224,90,.2) !important; }
+body.theme-scourge .smc-label { color: #8fa886 !important; font-family: 'Rajdhani', sans-serif !important; }
+body.theme-scourge .smc-desc { color: rgba(140,180,120,.55) !important; }
+
+body.theme-scourge { --intro-bright:#cfe8c0; --intro-mid:#6fe05a; --intro-dim:#1f5a14; --intro-rule:rgba(111,224,90,.2); --intro-sep:#080b07; }
+body.theme-scourge #forfeit-btn { background: rgba(60,10,10,.2) !important; border: 1px solid rgba(120,30,30,.5) !important; color: rgba(200,90,90,.8) !important; }
+body.theme-scourge #forfeit-popup-box { background: linear-gradient(160deg, rgba(11,17,10,.99), rgba(4,6,4,.99)) !important; border: 1px solid rgba(111,224,90,.32) !important; }
+
+/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
+body.theme-scourge #menu-profile, body.theme-scourge #menu-tournament,
+body.theme-scourge .chat-msg, body.theme-scourge .translate-btn,
+body.theme-scourge #menu-shop,
+body.theme-scourge #menu-quests,
+body.theme-scourge #menu-achievements,
+body.theme-scourge #menu-lobby,
+body.theme-scourge #menu-customize,
+body.theme-scourge #menu-clubs,
+body.theme-scourge #menu-leaderboard,
+body.theme-scourge #menu-decks {
+    filter: hue-rotate(70deg) saturate(1.6) brightness(0.75) !important;
+}

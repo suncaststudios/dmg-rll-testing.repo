@@ -2225,6 +2225,31 @@ function loadSettings() {
     // can resolve the right folder before/independent of settings.js's own
     // load — keep them in sync on every load.
     try { localStorage.setItem('dr_legacy_music', s.legacyMusic ? '1' : '0'); } catch (e) {}
+
+    // Music/SFX volume — like legacy music, these live in their own
+    // localStorage keys (set by setMusicVol/setSfxVol in game.js) rather
+    // than the settings blob, since they're meant to apply live outside
+    // the Apply/Return flow. They were being written on every change but
+    // never read back, so the sliders — and the actual musicVol/sfxVol
+    // used for playback — silently reset to defaults on every reload.
+    try {
+        const savedMusicVol = parseFloat(localStorage.getItem('dr_music_vol'));
+        if (isFinite(savedMusicVol)) {
+            musicVol = Math.max(0, Math.min(1, savedMusicVol));
+            const vm = document.getElementById('v-m');
+            if (vm) vm.value = Math.round(musicVol * 100);
+            if (typeof _musicApplyVolume === 'function') _musicApplyVolume();
+        }
+    } catch (e) {}
+    try {
+        const savedSfxVol = parseFloat(localStorage.getItem('dr_sfx_vol'));
+        if (isFinite(savedSfxVol)) {
+            sfxVol = Math.max(0, Math.min(1, savedSfxVol));
+            const vs = document.getElementById('v-s');
+            if (vs) vs.value = Math.round(sfxVol * 100);
+        }
+    } catch (e) {}
+
     setChecked('opt-berserker-nerf',s.berserkerNerf);
     _setBtnGroupValue('opt-ui-scale', s.uiScale);
     setValue('opt-speed',      s.animSpeed);

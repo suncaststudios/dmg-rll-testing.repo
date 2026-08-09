@@ -139,9 +139,16 @@
         /* Settings Apply/Return bar: counter-scale against the ancestor's
            UI-scale transform so it's genuinely "unaffected by scaling" as
            promised, rather than growing/shrinking (and potentially getting
-           pushed out of the visible viewport) along with everything else. */
+           pushed out of the visible viewport) along with everything else.
+           translateY compensates for #game-container's transform-origin:
+           50% 50% scaling around its center, which otherwise shifts the
+           container's (and this bar's) bottom edge below the real viewport
+           as --ui-scale grows past 1. Clamped with min() to never push
+           *down* (only ever up, or not at all) — a positive shift here
+           would move the bar past #game-container's own overflow:hidden
+           clip boundary at scales below 1 and hide it entirely. */
         .settings-action-bar {
-            transform: scale(calc(1 / var(--ui-scale, 1)));
+            transform: translateY(calc(min(0px, (1 - var(--ui-scale, 1)) * 50vh))) scale(calc(1 / var(--ui-scale, 1)));
             transform-origin: 50% 100%;
         }
 

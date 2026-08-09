@@ -93,6 +93,26 @@ async function initGame() {
     render();
 }
 
+/* ── Per-setting appliers ──────────────────────────────────────────
+   These mirror the logic in _applySettingsEffects() but let a single
+   setting be re-applied on demand (e.g. from returnToMenu(), or the
+   card-darkness slider's oninput) without re-reading/re-applying every
+   other setting at the same time. */
+function applyGraphicsQuality(val) {
+    document.body.className = document.body.className.replace(/\bgfx-\S+/g, '').trim();
+    if (val) document.body.classList.add('gfx-' + val);
+}
+function applyCardDark(val) {
+    _cardDark = val;
+    document.documentElement.style.setProperty('--card-darkness', val ? (val / 100) : 0);
+}
+function applyRarityGlow() {
+    window._rarityGlowEnabled = _optChecked('opt-rarity-glow') !== false;
+}
+function applyHighContrast() {
+    document.body.classList.toggle('high-contrast', !!_optChecked('opt-high-contrast'));
+}
+
 function returnToMenu() {
     // Online: clean up room and listeners when leaving
     if (typeof _onlineMode !== 'undefined' && _onlineMode) _cleanupOnline();

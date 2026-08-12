@@ -251,7 +251,7 @@ body.theme-cyberpunk #forfeit-btn { background: rgba(255,0,155,.12) !important; 
 body.theme-cyberpunk #forfeit-popup-box { background: linear-gradient(160deg, rgba(14,0,28,.99), rgba(6,0,14,.99)) !important; border: 1px solid rgba(255,0,155,.48) !important; border-radius: 0 !important; }
 
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-cyberpunk #menu-profile, body.theme-cyberpunk #menu-tournament,
+body.theme-cyberpunk #menu-profile, body.theme-cyberpunk #profile-edit-modal, body.theme-cyberpunk #menu-tournament,
 body.theme-cyberpunk .chat-msg, body.theme-cyberpunk .translate-btn,
 body.theme-cyberpunk #menu-shop,
 body.theme-cyberpunk #menu-quests,

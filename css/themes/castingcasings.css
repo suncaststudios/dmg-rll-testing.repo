@@ -260,7 +260,7 @@ body.theme-castingcasings #forfeit-btn { background: rgba(80,20,10,.2) !importan
 body.theme-castingcasings #forfeit-popup-box { background: linear-gradient(160deg, rgba(20,13,16,.99), rgba(8,5,7,.99)) !important; border: 1px solid rgba(200,150,60,.4) !important; }
 
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-castingcasings #menu-profile, body.theme-castingcasings #menu-tournament,
+body.theme-castingcasings #menu-profile, body.theme-castingcasings #profile-edit-modal, body.theme-castingcasings #menu-tournament,
 body.theme-castingcasings .chat-msg, body.theme-castingcasings .translate-btn,
 body.theme-castingcasings #menu-shop,
 body.theme-castingcasings #menu-quests,

@@ -242,7 +242,7 @@ body.theme-8space #forfeit-btn { background: #2a0a1a !important; border: 2px sol
 body.theme-8space #forfeit-popup-box { background: #0a0722 !important; border: 3px solid #00e5ff !important; border-radius: 0 !important; box-shadow: 4px 4px 0 0 #ff2ec4 !important; }
 
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-8space #menu-profile, body.theme-8space #menu-tournament,
+body.theme-8space #menu-profile, body.theme-8space #profile-edit-modal, body.theme-8space #menu-tournament,
 body.theme-8space .chat-msg, body.theme-8space .translate-btn,
 body.theme-8space #menu-shop,
 body.theme-8space #menu-quests,

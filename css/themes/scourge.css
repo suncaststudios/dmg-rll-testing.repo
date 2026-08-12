@@ -297,7 +297,7 @@ body.theme-scourge #forfeit-btn { background: rgba(60,10,10,.2) !important; bord
 body.theme-scourge #forfeit-popup-box { background: linear-gradient(160deg, rgba(11,17,10,.99), rgba(4,6,4,.99)) !important; border: 1px solid rgba(111,224,90,.32) !important; }
 
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-scourge #menu-profile, body.theme-scourge #menu-tournament,
+body.theme-scourge #menu-profile, body.theme-scourge #profile-edit-modal, body.theme-scourge #menu-tournament,
 body.theme-scourge .chat-msg, body.theme-scourge .translate-btn,
 body.theme-scourge #menu-shop,
 body.theme-scourge #menu-quests,

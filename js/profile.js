@@ -50,12 +50,13 @@ function _genRandomUsername() {
 
 let _profileData = {
     username: _genRandomUsername(),
+    displayName: '',
     avatar:   '⚔️',
     banner:   PROFILE_BANNERS[0],
     avatarImg: null,   // base64 custom image, or null
     bannerImg: null,   // base64 custom image, or null
     bio:'', discord:'', twitter:'', youtube:'', itch:'',
-    pinnedAch:null, memberSince:null,
+    pinnedAch:null, favDeck:null, memberSince:null,
     xp:    0,
     level: 1,
     wins:  0,
@@ -100,8 +101,8 @@ function _updateCornerBtn() {
     const av = _profileData.avatarImg
         ? `<img src="${_profileData.avatarImg}" style="width:18px;height:18px;border-radius:50%;object-fit:cover;">`
         : (_profileData.avatar || '⚔️');
-    btn.innerHTML = av + ' ' + (_profileData.username || 'Profile');
-    btn.title = _profileData.username || 'Profile';
+    btn.innerHTML = av + ' ' + (window._getDisplayName ? window._getDisplayName() : (_profileData.username || 'Profile'));
+    btn.title = window._getDisplayName ? window._getDisplayName() : (_profileData.username || 'Profile');
 }
 
 function openProfile() {
@@ -121,7 +122,9 @@ function openProfile() {
 function _renderProfileView() {
     const el = id => document.getElementById(id);
     if (!el('profile-view-username')) return;
-    el('profile-view-username-text').textContent = _profileData.username || 'Wanderer';
+    el('profile-view-username-text').textContent = window._getDisplayName ? window._getDisplayName() : (_profileData.username || 'Wanderer');
+    const handleEl = el('profile-view-handle');
+    if (handleEl) handleEl.textContent = '@' + (_profileData.username || 'wanderer').toLowerCase();
     const _statusDot = el('profile-view-status-dot');
     if (_statusDot) {
         const _status = _profileData.onlineStatus || 'online';
@@ -137,6 +140,24 @@ function _renderProfileView() {
             avEl.innerHTML = `<img src="${_profileData.avatarImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
         } else {
             avEl.textContent = _profileData.avatar || '⚔️';
+        }
+    }
+    // Quote tooltip — shows on avatar hover, was previously captured at
+    // signup and saved but never actually displayed anywhere in the app.
+    const quoteTip = el('profile-quote-tooltip');
+    if (quoteTip) {
+        quoteTip.textContent = '"' + (_profileData.quote || '') + '"';
+        if (avEl && !avEl._quoteHoverWired) {
+            avEl._quoteHoverWired = true;
+            avEl.addEventListener('mouseenter', () => {
+                if (!_profileData.quote) return;
+                quoteTip.style.display = 'block';
+                requestAnimationFrame(() => quoteTip.classList.add('visible'));
+            });
+            avEl.addEventListener('mouseleave', () => {
+                quoteTip.classList.remove('visible');
+                setTimeout(() => { if (!quoteTip.classList.contains('visible')) quoteTip.style.display = 'none'; }, 180);
+            });
         }
     }
     // Banner
@@ -171,7 +192,8 @@ function _renderProfileView() {
     if (el('pstat-streak')) el('pstat-streak').textContent = achStats.maxWinStreak || 0;
     if (el('pstat-achs'))   el('pstat-achs').textContent   = (typeof unlockedAchs !== 'undefined') ? unlockedAchs.size : 0;
     const favDeck = (typeof DECKS !== 'undefined')
-        ? DECKS.reduce((b,d)=>{ const w=(achStats.deckWins&&achStats.deckWins[d.id])||0; return w>(b.w||0)?{d,w}:b; },{d:DECKS[0],w:0}).d
+        ? (_profileData.favDeck ? DECKS.find(d => d.id === _profileData.favDeck) : null)
+          || DECKS.reduce((b,d)=>{ const w=(achStats.deckWins&&achStats.deckWins[d.id])||0; return w>(b.w||0)?{d,w}:b; },{d:DECKS[0],w:0}).d
         : null;
     if (favDeck) {
         if (el('profile-fav-deck-icon')) el('profile-fav-deck-icon').textContent = favDeck.icon || '⚔️';
@@ -191,6 +213,7 @@ function _renderProfileView() {
 function openProfileEdit() {
     playSfx('menuClick');
     const el = id => document.getElementById(id);
+    if (el('profile-display-name')) el('profile-display-name').value = _profileData.displayName || '';
     if (el('profile-username')) el('profile-username').value = _profileData.username || '';
     if (el('profile-quote'))    el('profile-quote').value    = _profileData.quote    || '';
     if (el('profile-bio'))      el('profile-bio').value      = _profileData.bio      || '';
@@ -225,8 +248,10 @@ function closeProfileEdit() {
 function saveProfile() {
     playSfx('menuClick');
     const el = id => document.getElementById(id);
-    const rawName = (el('profile-username')?.value||'').trim();
-    _profileData.username  = rawName || _genRandomUsername();
+    const rawDisplayName = (el('profile-display-name')?.value||'').trim();
+    const rawUsername     = (el('profile-username')?.value||'').trim();
+    _profileData.displayName = rawDisplayName;
+    _profileData.username   = rawUsername || _genRandomUsername();
     _profileData.quote     = (el('profile-quote')?.value||'').trim();
     _profileData.bio       = (el('profile-bio')?.value||'').trim();
     _profileData.discord   = (el('profile-discord')?.value||'').trim();
@@ -245,7 +270,8 @@ function saveProfile() {
     const msg = el('profile-save-msg');
     if (window._supabaseHome && _syncedUid) {
         window._supabaseHome.from('profiles').update({
-            username:   _profileData.username,
+            username:     _profileData.username,
+            display_name: _profileData.displayName,
             avatar:     _profileData.avatar,
             avatar_img: _profileData.avatarImg || '',
             banner_img: _profileData.bannerImg || '',
@@ -288,8 +314,11 @@ function saveProfile() {
     }, 1000);
 }
 
-// Wire online display name to profile username
-window._getDisplayName = () => _profileData.username || 'Wanderer';
+// Wire online display name to profile — Display Name takes priority over
+// the internal username handle, since that's what players actually chose
+// to be shown as. Falls back to username (e.g. for accounts made before
+// Display Name existed), then the generic placeholder.
+window._getDisplayName = () => _profileData.displayName || _profileData.username || 'Wanderer';
 
 // Startup
 loadProfile();
@@ -778,5 +807,58 @@ function _selectPinnedAch(id) {
     // Highlight selected
     document.querySelectorAll('.profile-pin-option').forEach(el => {
         el.classList.toggle('selected', el.getAttribute('onclick')?.includes(id));
+    });
+}
+
+/* ── Favorite deck picker — was previously fully automatic (most-wins
+   deck) with no way to choose your own. Mirrors the pinned-achievement
+   picker: pick a deck, or leave unset to fall back to the auto pick. ── */
+function openFavDeckPicker() {
+    playSfx('menuClick');
+    const picker = document.getElementById('profile-fav-deck-picker');
+    const grid   = document.getElementById('profile-fav-deck-grid');
+    if (!picker || !grid) return;
+
+    if (typeof DECKS === 'undefined' || !DECKS.length) {
+        grid.innerHTML = '<div style="font-family:Cinzel,serif;font-size:9px;color:#6b4f2a;">No decks available.</div>';
+        picker.style.display = 'block';
+        return;
+    }
+
+    const current = _profileData.favDeck || null;
+    grid.innerHTML = `
+        <div class="profile-pin-option${!current ? ' selected' : ''}" onclick="_selectFavDeck(null)">
+            <span class="profile-pin-option-icon">✦</span>
+            <span class="profile-pin-option-name">Auto (Most Wins)</span>
+            <span class="profile-pin-option-rarity"></span>
+        </div>` +
+        DECKS.map(d => `
+        <div class="profile-pin-option${current === d.id ? ' selected' : ''}"
+             onclick="_selectFavDeck('${d.id}')">
+            <span class="profile-pin-option-icon">${d.icon || '⚔️'}</span>
+            <span class="profile-pin-option-name">${d.name || ''}</span>
+            <span class="profile-pin-option-rarity"></span>
+        </div>`).join('');
+
+    picker.style.display = 'block';
+}
+
+function closeFavDeckPicker() {
+    const picker = document.getElementById('profile-fav-deck-picker');
+    if (picker) picker.style.display = 'none';
+    _renderProfileView();
+    // Favorite deck choice saves immediately, not just on the main Save
+    // button, since it lives outside the edit modal.
+    saveProfileData();
+    if (window._supabaseHome && _syncedUid) {
+        window._supabaseHome.from('profiles').update({ fav_deck: _profileData.favDeck || null }).eq('id', _syncedUid);
+    }
+}
+
+function _selectFavDeck(id) {
+    _profileData.favDeck = id;
+    document.querySelectorAll('#profile-fav-deck-grid .profile-pin-option').forEach(el => {
+        const onclick = el.getAttribute('onclick') || '';
+        el.classList.toggle('selected', id === null ? onclick.includes('(null)') : onclick.includes(`'${id}'`));
     });
 }

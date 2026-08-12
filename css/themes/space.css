@@ -141,6 +141,7 @@ body.theme-space .menu-nav-btn.primary-nav {
     color: #70d0ff !important;
 }
 body.theme-space .mnb-icon { color: rgba(70,120,255,.8) !important; }
+body.theme-space .mnb-arrow { color: rgba(120,150,220,.55) !important; }
 
 body.theme-space .rune-cell {
     color: rgba(80,130,255,.22) !important;
@@ -189,6 +190,7 @@ body.theme-space .hud {
 body.theme-space .hud-name { font-family: 'Orbitron', sans-serif !important; font-size: 8px !important; letter-spacing: 3px !important; color: #7090d0 !important; }
 body.theme-space #turn-indicator { font-family: 'Orbitron', sans-serif !important; letter-spacing: 5px !important; color: #70b8ff !important; font-size: 12px !important; }
 body.theme-space .hp-fill { background: linear-gradient(90deg, #1a3acc, #4070ff) !important; }
+body.theme-space .hp-bar  { border-color: rgba(70,110,220,.35) !important; }
 
 body.theme-space .card {
     border-color: rgba(35,70,195,.3) !important;
@@ -241,7 +243,7 @@ body.theme-space #forfeit-btn { background: rgba(40,8,8,.85) !important; border-
 body.theme-space #forfeit-popup-box { background: linear-gradient(160deg, rgba(4,7,28,.99), rgba(2,4,18,.99)) !important; border-color: rgba(35,70,200,.45) !important; }
 
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-space #menu-profile, body.theme-space #menu-tournament,
+body.theme-space #menu-profile, body.theme-space #profile-edit-modal, body.theme-space #menu-tournament,
 body.theme-space .chat-msg, body.theme-space .translate-btn,
 body.theme-space #menu-shop,
 body.theme-space #menu-quests,

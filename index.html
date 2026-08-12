@@ -719,9 +719,11 @@
             <div class="prf-avatar-row">
                 <div class="prf-avatar-wrap">
                     <div class="profile-avatar prf-avatar" id="profile-avatar-display">⚔️</div>
+                    <div class="prf-quote-tooltip" id="profile-quote-tooltip" style="display:none;"></div>
                 </div>
             </div>
             <div class="prf-username" id="profile-view-username"><span id="profile-view-username-text">Wanderer</span><span id="profile-view-status-dot" class="prf-status-dot" title=""></span></div>
+            <div class="prf-handle" id="profile-view-handle">@wanderer</div>
             <div class="prf-sub">
                 <span class="prf-club-title" id="profile-club-title">⚔ Wanderer</span>
                 <span class="prf-discord" id="profile-view-discord">
@@ -756,8 +758,14 @@
                     <span class="profile-fav-deck-icon" id="profile-fav-deck-icon">⚔️</span>
                     <span class="profile-fav-deck-name" id="profile-fav-deck-name">Standard</span>
                     <span class="profile-fav-deck-badge">Fav Deck</span>
+                    <button class="profile-pin-change-btn" onclick="openFavDeckPicker()" style="font-size:8px; padding:3px 9px; margin-left:6px;">Change</button>
                 </div>
                 <span id="profile-member-since" style="font-family:'Cinzel',serif; font-size:9px; color:#4a3010; letter-spacing:1px;">Member since: —</span>
+            </div>
+            <div class="profile-pin-picker" id="profile-fav-deck-picker" style="display:none;">
+                <div class="cdb-label" style="margin-bottom:6px;">Select Favorite Deck <span style="opacity:0.55; text-transform:none; letter-spacing:0;">(or leave on Auto to show your most-won deck)</span></div>
+                <div class="profile-pin-grid" id="profile-fav-deck-grid"></div>
+                <button class="btn" style="min-width:100%; margin-top:8px; padding:7px; font-size:10px;" onclick="closeFavDeckPicker()">Done</button>
             </div>
         </div>
 
@@ -812,16 +820,20 @@
                 <button class="btn" style="min-width:100%; padding:5px; font-size:10px; margin-top:4px;" onclick="closeBannerPicker()">Done</button>
             </div>
 
-            <!-- Avatar + Username row -->
+            <!-- Avatar + Display Name row -->
             <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px; margin-top:10px;">
                 <div style="position:relative; flex-shrink:0;">
                     <div class="profile-avatar" id="profile-edit-avatar-display" style="width:64px;height:64px;font-size:30px;overflow:hidden;display:flex;align-items:center;justify-content:center;line-height:1;">⚔️</div>
                     <button class="profile-avatar-edit-btn" onclick="openAvatarPicker()" title="Change avatar" style="bottom:-4px;right:-4px;">✎</button>
                 </div>
                 <div style="flex:1;">
-                    <div class="cdb-label">Username</div>
-                    <input class="cdb-input profile-input" id="profile-username" type="text" maxlength="24" placeholder="Enter your name...">
+                    <div class="cdb-label">Display Name</div>
+                    <input class="cdb-input profile-input" id="profile-display-name" type="text" maxlength="32" placeholder="Shown everywhere in-game...">
                 </div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <div class="cdb-label">Username <span style="opacity:0.55; text-transform:none; letter-spacing:0;">— your @handle</span></div>
+                <input class="cdb-input profile-input" id="profile-username" type="text" maxlength="24" placeholder="Enter a username...">
             </div>
 
             <!-- Avatar picker -->

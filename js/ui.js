@@ -67,7 +67,7 @@
         if (!input) return;
         const text = input.value.replace(/\n+$/, '').trim();
         if (!text) return;
-        const name = (typeof _profileData !== 'undefined' && _profileData.username) ? _profileData.username : 'You';
+        const name = (typeof window._getDisplayName === 'function') ? window._getDisplayName() : ((typeof _profileData !== 'undefined' && _profileData.username) ? _profileData.username : 'You');
         addMsg(name, text, 'player');
         input.value = '';
         input.style.height = '';

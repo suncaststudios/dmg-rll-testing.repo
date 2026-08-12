@@ -313,6 +313,7 @@ async function _authCreateProfile() {
         const { error: profErr } = await sb.from('profiles').upsert({
             id:            uid,
             username:      _authDraft.username,
+            display_name:  _authDraft.displayName,
             avatar:        _authDraft.avatar,
             avatar_img:    _authDraft.avatarImg || '',
             banner_img:    _authDraft.bannerImg || '',
@@ -328,8 +329,9 @@ async function _authCreateProfile() {
             // Don't return — still call _authOnLogin so they get in
         }
         // 3. Save banner pref locally
-        _profileData.banner    = _authDraft.banner    || PROFILE_BANNERS[0];
-        _profileData.bannerImg = _authDraft.bannerImg || null;
+        _profileData.banner      = _authDraft.banner    || PROFILE_BANNERS[0];
+        _profileData.bannerImg   = _authDraft.bannerImg || null;
+        _profileData.displayName = _authDraft.displayName || '';
         await _authOnLogin(authData.user);
     } catch(e) {
         if (e.message?.includes('fetch') || e.message?.includes('network') || e.message?.includes('NetworkError')) {
@@ -394,6 +396,7 @@ async function _fetchProfileByUid(uid, silent = false) {
         if (error || !data) return;
         // Merge DB data into local _profileData
         _profileData.username    = data.username    || _profileData.username;
+        _profileData.displayName = data.display_name ?? _profileData.displayName;
         _profileData.avatar      = data.avatar      || _profileData.avatar;
         _profileData.avatarImg   = data.avatar_img  || null;
         _profileData.bannerImg   = data.banner_img  || null;
@@ -408,6 +411,7 @@ async function _fetchProfileByUid(uid, silent = false) {
         _profileData.level       = data.level  || 1;
         _profileData.bestTime            = data.best_time             || _profileData.bestTime || 0;
         _profileData.challengesCompleted = data.challenges_completed  || _profileData.challengesCompleted || 0;
+        _profileData.favDeck             = data.fav_deck || null;
         saveProfileData();
         _updateCornerBtn();
         _renderProfileView();

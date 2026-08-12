@@ -58,7 +58,7 @@ function openCreateRoom() {
     if (sizeEl) sizeEl.textContent = '2';
     // Pre-fill room name
     const nameEl = document.getElementById('create-room-name-input');
-    if (nameEl) nameEl.value = (_profileData.username || 'Wanderer') + "'s Room";
+    if (nameEl) nameEl.value = (window._getDisplayName ? window._getDisplayName() : (_profileData.username || 'Wanderer')) + "'s Room";
     const statusEl = document.getElementById('create-room-status');
     if (statusEl) statusEl.style.display = 'none';
     toggle('menu-create-room-setup', true);
@@ -90,7 +90,7 @@ async function _lobbyCreate() {
     const btn = document.querySelector('#menu-create-room-setup .auth-btn');
     const statusEl = document.getElementById('create-room-status');
     const name = (document.getElementById('create-room-name-input')?.value || '').trim()
-                 || (_profileData.username + "'s Room");
+                 || ((window._getDisplayName ? window._getDisplayName() : _profileData.username) + "'s Room");
     if (!sb) { _lobbyStatus(statusEl, 'Supabase not connected.', 'err'); return; }
     if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
 
@@ -555,7 +555,7 @@ function _lobbySendChat() {
     if (!text) return; // entire message was blocked
     const msg = {
         uid:    _getOnlineUid(),
-        name:   _profileData.username || 'Wanderer',
+        name:   (window._getDisplayName ? window._getDisplayName() : _profileData.username) || 'Wanderer',
         avatar: _profileData.avatar   || '⚔️',
         text,
         ts:     Date.now(),
@@ -634,7 +634,7 @@ function _lobbySendWhisper(toUid) {
     input.value = '';
     const payload = {
         from:     _getOnlineUid(),
-        fromName: _profileData.username || 'Wanderer',
+        fromName: (window._getDisplayName ? window._getDisplayName() : _profileData.username) || 'Wanderer',
         to:       toUid,
         text,
     };
@@ -676,7 +676,7 @@ function _lobbyVote(type, targetUid) {
         type,
         targetUid,
         voterUid:  _getOnlineUid(),
-        voterName: _profileData.username || 'Wanderer',
+        voterName: (window._getDisplayName ? window._getDisplayName() : _profileData.username) || 'Wanderer',
         total:     _lobby.players.filter(p => p.status !== 'spectating').length,
     };
     // Count our own vote locally too
@@ -762,7 +762,7 @@ function _lobbyChallenge(uid) {
     _lobbyPendingChallenges.add(myUid + '-' + uid);
     _lobby.channel.send({
         type: 'broadcast', event: 'challenge',
-        payload: { from: myUid, fromName: _profileData.username || 'Wanderer', to: uid }
+        payload: { from: myUid, fromName: (window._getDisplayName ? window._getDisplayName() : _profileData.username) || 'Wanderer', to: uid }
     });
     _lobbyChatSystem(`You challenged ${_lobby.players.find(p=>p.uid===uid)?.name || '?'} to a duel`);
 }
@@ -906,7 +906,7 @@ async function _lobbyLeave(kicked = false) {
 
     const myUid   = _getOnlineUid();
     const wasHost = _lobby.isHost;
-    const myName  = _profileData.username || 'Wanderer';
+    const myName  = (window._getDisplayName ? window._getDisplayName() : _profileData.username) || 'Wanderer';
 
     // Broadcast leave immediately (before unsubscribing)
     if (_lobby.channel) {
@@ -962,7 +962,7 @@ async function _lobbyLeave(kicked = false) {
 function _lobbyMakeSelf(status) {
     return {
         uid:    _getOnlineUid(),
-        name:   _profileData.username || 'Wanderer',
+        name:   (window._getDisplayName ? window._getDisplayName() : _profileData.username) || 'Wanderer',
         avatar: _profileData.avatar   || '⚔️',
         ready:  false,
         status,

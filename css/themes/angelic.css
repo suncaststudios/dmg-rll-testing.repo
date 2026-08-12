@@ -159,6 +159,11 @@ body.theme-angelic .hud-name { font-family: 'Linux Libertine', Georgia, serif !i
 body.theme-angelic .hp-label { color: #54595d !important; font-family: Georgia, serif !important; }
 body.theme-angelic .hp-bar { border: 1px solid #a2a9b1 !important; border-radius: 0 !important; }
 body.theme-angelic .hp-fill { background: #c9a227 !important; border-radius: 0 !important; }
+
+body.theme-angelic #forfeit-btn { background: #f8f9fa !important; border-color: #a2a9b1 !important; color: #202122 !important; border-radius: 0 !important; }
+body.theme-angelic #forfeit-popup-box { background: #ffffff !important; border-color: #a2a9b1 !important; border-radius: 0 !important; box-shadow: 0 1px 6px rgba(0,0,0,.12) !important; }
+body.theme-angelic #forfeit-popup-title { color: #202122 !important; font-family: 'Linux Libertine', Georgia, serif !important; }
+body.theme-angelic #forfeit-popup-body { color: #54595d !important; }
 body.theme-angelic #turn-indicator { font-family: 'Linux Libertine', Georgia, serif !important; color: #202122 !important; font-size: 13px !important; letter-spacing: 1px !important; }
 
 body.theme-angelic .card {
@@ -254,7 +259,7 @@ body.theme-angelic { --intro-bright:#202122; --intro-mid:#54595d; --intro-dim:#a
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
    Angelic is a neutral light/editorial theme — invert + desaturate the
    default dark-brown panel toward a white/gray/gold heavenly look. ── */
-body.theme-angelic #menu-profile, body.theme-angelic #menu-tournament,
+body.theme-angelic #menu-profile, body.theme-angelic #profile-edit-modal, body.theme-angelic #menu-tournament,
 body.theme-angelic .chat-msg, body.theme-angelic .translate-btn,
 body.theme-angelic #menu-shop,
 body.theme-angelic #menu-quests,

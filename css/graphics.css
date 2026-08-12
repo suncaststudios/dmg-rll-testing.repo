@@ -1177,6 +1177,28 @@ body.theme-ice .forfeit-confirm-btn.no { color:#1a3870 !important; border-color:
     margin-top: -40px; margin-bottom: 10px;
 }
 .prf-avatar-wrap { position: relative; flex-shrink: 0; }
+.prf-quote-tooltip {
+    position: absolute; bottom: calc(100% + 10px); left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    min-width: 160px; max-width: 260px;
+    background: linear-gradient(160deg, rgba(20,10,2,0.98), rgba(8,4,0,0.99));
+    border: 1px solid rgba(160,110,40,0.4);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: 'IM Fell English', serif; font-size: 12px; font-style: italic;
+    color: #e8c87a; line-height: 1.5; text-align: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 50;
+}
+.prf-quote-tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(160,110,40,0.4);
+}
+.prf-quote-tooltip.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 .prf-avatar {
     width: 80px !important; height: 80px !important; font-size: 38px !important;
     border-radius: 50% !important;
@@ -1200,6 +1222,10 @@ body.theme-ice .forfeit-confirm-btn.no { color:#1a3870 !important; border-color:
 .prf-status-dot.prf-status-online  { background: #4caf50; color: #4caf50; }
 .prf-status-dot.prf-status-offline { background: #6b6b6b; color: #6b6b6b; box-shadow: none; }
 .prf-status-dot.prf-status-dnd     { background: #e04b3f; color: #e04b3f; }
+.prf-handle {
+    font-family: 'IM Fell English', serif; font-size: 12px; font-style: italic;
+    color: #7a5a30; margin-top: 2px; letter-spacing: 0.5px;
+}
 .prf-sub {
     display: flex; align-items: center; gap: 10px; margin-top: 4px; flex-wrap: wrap;
 }

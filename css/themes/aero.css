@@ -157,6 +157,7 @@ body.theme-aero .menu-nav-btn.primary-nav {
         rgba(165,232,205,.6) 100%) !important;
 }
 body.theme-aero .mnb-icon { font-size: 16px !important; }
+body.theme-aero .mnb-arrow { color: rgba(75,165,225,.55) !important; }
 
 body.theme-aero .rune-cell { color: rgba(0,145,185,.18) !important; }
 body.theme-aero .deco-rule {
@@ -291,7 +292,7 @@ body.theme-aero #forfeit-popup-body { color: #004478 !important; }
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
    Aero is a light theme, so invert the dark default panel first, then
    hue-rotate back into the sky-blue/aqua family. ── */
-body.theme-aero #menu-profile, body.theme-aero #menu-tournament,
+body.theme-aero #menu-profile, body.theme-aero #profile-edit-modal, body.theme-aero #menu-tournament,
 body.theme-aero .chat-msg, body.theme-aero .translate-btn,
 body.theme-aero #menu-shop,
 body.theme-aero #menu-quests,

@@ -215,6 +215,15 @@
                 radial-gradient(ellipse at 50% 100%, rgba(8,3,0,0.8) 0%, transparent 50%),
                 rgba(4,1,0,0.97);
         }
+        /* Tournament menu is opened from #menu-start (game mode select)
+           without that screen being hidden first, so both are technically
+           visible at once. Since both share the base .screen z-index of
+           2000, paint order fell back to DOM order — and #menu-start
+           appears later in index.html, so it always won and covered the
+           tournament screen. Bump tournament above every other .screen. */
+        #menu-tournament {
+            z-index: 2100;
+        }
         /* sub-menu animation states — cinematic directional sweep */
         .screen.screen-animatable {
             opacity: 0;
@@ -2139,13 +2148,22 @@
             transform: translateX(-50%);
             display: flex; gap: 10px;
             z-index: 100; perspective: 800px;
+            /* Keep the row off the arena's edges (#game-container is
+               overflow:hidden) so the hover lift/tilt/glow on the outer
+               cards — especially the rightmost one — never gets clipped. */
+            max-width: calc(100% - 48px);
+            justify-content: center;
         }
 
-        /* ── Cards ── */
+        /* ── Cards ──
+           Was 120x178 — too small for the longer card descriptions, which
+           routinely ran to 7+ lines and spilled out past the bottom edge
+           of the card instead of staying contained. Sized up and the
+           name/icon/desc rules below were tightened to fit comfortably. */
         .card {
-            width: 120px; height: 178px; border-radius: 10px;
+            width: 150px; height: 222px; border-radius: 10px;
             display: flex; flex-direction: column;
-            padding: 10px 9px 8px; cursor: pointer; position: relative;
+            padding: 12px 11px 10px; cursor: pointer; position: relative;
             transform-style: preserve-3d;
             transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s;
             background:
@@ -2188,20 +2206,25 @@
             box-shadow: 0 32px 64px rgba(0,0,0,0.9), 0 0 48px rgba(255,180,0,0.28) !important;
         }
         .c-name {
-            font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
+            font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700;
             text-transform: uppercase; letter-spacing: 1.2px; color: #1a0900;
             border-bottom: 1px solid rgba(80,45,10,0.45);
             padding-bottom: 4px; margin-bottom: 4px;
             text-shadow: 0 1px 0 rgba(255,230,160,0.35);
         }
         .c-icon {
-            font-size: 50px; text-align: center; margin: 5px 0 3px;
+            font-size: 38px; text-align: center; margin: 4px 0 4px;
             filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
         }
         .c-desc {
-            font-family: 'IM Fell English', serif; font-size: 11.5px;
-            font-style: italic; line-height: 1.45; flex-grow: 1;
+            font-family: 'IM Fell English', serif; font-size: 12px;
+            font-style: italic; line-height: 1.35; flex-grow: 1;
             color: #1e0e04; font-weight: 400; letter-spacing: 0.1px;
+            /* Safety net: even if a future card description runs long,
+               it will scroll within the card instead of spilling out
+               past the border like before. */
+            overflow-y: auto; overflow-x: hidden;
+            scrollbar-width: thin; scrollbar-color: rgba(100,65,20,0.5) transparent;
         }
 
         /* ── End Screen ── */
@@ -2895,7 +2918,11 @@
 
 /* ── Image crop modal — default (gold), used from the profile screen ── */
 .img-crop-modal {
-    display: none; position: fixed; inset: 0; z-index: 99500;
+    /* Was z-index:99500, still under some other overlay (auth wall
+       stacking context, etc.) causing it to render behind the login
+       screen when opened during signup avatar/banner upload. Forced way
+       above everything else in the document — brute-force but reliable. */
+    display: none; position: fixed; inset: 0; z-index: 999999;
     align-items: center; justify-content: center;
     background: rgba(0,0,0,0.82);
 }

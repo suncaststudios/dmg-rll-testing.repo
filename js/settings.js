@@ -4,8 +4,32 @@ function switchSettingsTab(id) {
         t.classList.toggle('active', t.getAttribute('onclick').includes("'" + id + "'")));
     document.querySelectorAll('.settings-tab-panel').forEach(p =>
         p.classList.toggle('active', p.id === 'stab-' + id));
-    playSfx('menuClick');
+    playSfx('tabSwitch');
+    if (id === 'audio') _cmUpdateReauthHint();
 }
+
+/* Shows/hides the "permission lapsed, click to re-allow" hint under the
+   Custom Music toggle — reflects window._cmNeedsReauth, set by
+   custom-music.js whenever a scan finds a saved folder handle but the
+   browser needs a fresh user gesture before it'll grant read access
+   again (can't be silently re-requested on page load). */
+function _cmUpdateReauthHint() {
+    const hint = document.getElementById('opt-custom-music-reauth-hint');
+    if (hint) hint.style.display = window._cmNeedsReauth ? '' : 'none';
+}
+
+/* Small click sound for any checkbox toggle inside the settings screen —
+   delegated listener instead of touching every individual onchange
+   attribute in index.html (there are dozens across all 5 tabs). */
+document.addEventListener('DOMContentLoaded', () => {
+    const panel = document.getElementById('menu-settings');
+    if (!panel) return;
+    panel.addEventListener('change', (e) => {
+        if (e.target && e.target.type === 'checkbox' && typeof playSfx === 'function') {
+            playSfx('settingsToggle');
+        }
+    });
+});
 
 /* ── Skip intro preference ── */
 function _applySkipIntroSetting() {
@@ -2182,6 +2206,7 @@ function saveSettings() {
         rarityGlow:    _optChecked('opt-rarity-glow'),
         muteBlur:      _optChecked('opt-mute-blur'),
         legacyMusic:   _optChecked('opt-legacy-music'),
+        customMusic:   _optChecked('opt-custom-music'),
         berserkerNerf: _optChecked('opt-berserker-nerf'),
         uiScale:       _btnGroupValue('opt-ui-scale'),
         animSpeed:     _optValue('opt-speed'),
@@ -2225,6 +2250,9 @@ function loadSettings() {
     // can resolve the right folder before/independent of settings.js's own
     // load — keep them in sync on every load.
     try { localStorage.setItem('dr_legacy_music', s.legacyMusic ? '1' : '0'); } catch (e) {}
+
+    setChecked('opt-custom-music',  s.customMusic);
+    try { localStorage.setItem('dr_custom_music', s.customMusic ? '1' : '0'); } catch (e) {}
 
     // Music/SFX volume — like legacy music, these live in their own
     // localStorage keys (set by setMusicVol/setSfxVol in game.js) rather
@@ -2286,6 +2314,18 @@ function _applySettingsEffects(s) {
     window._skipForfeitConfirm = !!s.skipForfeit;
     window._showCombatLog      = !!s.combatLog;
     window._berserkerNerf      = !!s.berserkerNerf;
+
+    // AI difficulty / think-speed — the Offline/Bot settings tab saves and
+    // restores these (s.difficulty / s.aiThink) via the button groups, but
+    // nothing ever wrote them to the actual runtime variables aiAct() and
+    // aiThinkMult() read (_difficulty / _aiThink). Both stayed permanently
+    // undefined, so `_aiThink === 'fast' ? ... ` etc. didn't crash by
+    // itself, but the bare, undeclared `_aiThink` reference inside aiAct()
+    // threw a ReferenceError the instant the AI tried to take its turn —
+    // breaking every offline match immediately after your first card.
+    window._difficulty = s.difficulty || 'normal';
+    window._aiThink     = s.aiThink    || 'normal';
+
 
     if (s.graphics) {
         document.body.className = document.body.className.replace(/\bgfx-\S+/g, '').trim();

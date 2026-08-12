@@ -25,15 +25,28 @@ const MUSIC_MANIFEST = {
     '8space':       { main: '8space-main.opus',           combat: '8space-combat.opus' },
     castingcasings: { main: 'castingcasings-main.opus',    combat: 'castingcasings-combat.opus' },
 };
-// "New" tracks live in music/ (empty until the new set is delivered);
-// the previous set now lives in "legacy music/" — toggled via the
-// Settings > Audio "Legacy Music" checkbox (dr_legacy_music), default off.
+// "New" tracks live in sounds/songs/music/ (empty until the new set is
+// delivered); the previous set lives in sounds/songs/legacy music/ —
+// toggled via the Settings > Audio "Legacy Music" checkbox
+// (dr_legacy_music), default off. Player-supplied tracks live in
+// sounds/songs/custom music/, toggled via "Custom Music" (dr_custom_music)
+// — see _musicCustomManifest() below for how those get picked up.
 function _musicUseLegacy() {
     try { return localStorage.getItem('dr_legacy_music') === '1'; }
     catch (e) { return false; }
 }
 function _musicDir() {
-    return _musicUseLegacy() ? 'legacy music/' : 'music/';
+    return _musicUseLegacy() ? 'sounds/songs/legacy music/' : 'sounds/songs/music/';
+}
+
+/* ── Custom Music ──────────────────────────────────────────────────────
+   Player-supplied tracks live in sounds/songs/custom music/{main menu,
+   combat}/, read directly off disk via the File System Access API — see
+   js/custom-music.js for the folder-picker/scan/permission logic.
+   Toggled via Settings > Audio "Custom Music" (dr_custom_music). */
+function _musicUseCustom() {
+    try { return localStorage.getItem('dr_custom_music') === '1'; }
+    catch (e) { return false; }
 }
 
 let _musicEl        = null;   // the single <audio> element used for both contexts
@@ -52,6 +65,19 @@ function _musicTrackFor(theme, context) {
     const t = MUSIC_MANIFEST[theme] || MUSIC_MANIFEST.default;
     const file = t[field] || MUSIC_MANIFEST.default[field];
     return file ? (_musicDir() + file) : null;
+}
+
+/* Resolves the actual source to play for this context — tries Custom
+   Music first (async: a real file read off disk), falling back to the
+   normal legacy/default lookup if custom music is off, unsupported,
+   not yet authorized, or has no files for this context. */
+async function _musicResolveSrc(theme, context) {
+    if (_musicUseCustom() && typeof _customMusicTrackUrl === 'function') {
+        const field = context === 'battle' ? 'combat' : 'main';
+        const customUrl = await _customMusicTrackUrl(field);
+        if (customUrl) return customUrl;
+    }
+    return _musicTrackFor(theme, context);
 }
 
 function _getMusicEl() {
@@ -83,15 +109,20 @@ function getMusicFrequencyData() {
     return _musicFreqData;
 }
 
-function _musicPlayTrack(context) {
+async function _musicPlayTrack(context) {
     _musicContext = context;
     const el = _getMusicEl();
     const theme = (typeof _currentTheme === 'string' ? _currentTheme : 'default');
-    const src = _musicTrackFor(theme, context);
+    const src = await _musicResolveSrc(theme, context);
+
+    // Context may have changed again while we were awaiting a custom-music
+    // file read — if so, a newer call to _musicPlayTrack already owns
+    // deciding what plays now, so this stale resolution should back off.
+    if (_musicContext !== context) return;
 
     if (!src) { el.pause(); return; } // no track for this theme/context yet — just silence, no error
 
-    const fullSrc = src; // relative path, resolved against the page
+    const fullSrc = src; // relative path (or blob: URL for custom tracks)
     if (el.dataset.src === fullSrc && !el.paused) return; // already playing the right thing
 
     // Cancel any fade already in progress — this was previously a no-op
@@ -134,6 +165,26 @@ function setLegacyMusicToggle(enabled) {
     // Re-trigger playback for whatever context is currently active so the
     // switch takes effect immediately instead of waiting for the next
     // theme change or screen transition.
+    if (_musicContext && typeof _musicPlayTrack === 'function') _musicPlayTrack(_musicContext);
+}
+
+async function setCustomMusicToggle(enabled) {
+    try { localStorage.setItem('dr_custom_music', enabled ? '1' : '0'); } catch (e) {}
+    if (!enabled) {
+        if (_musicContext && typeof _musicPlayTrack === 'function') _musicPlayTrack(_musicContext);
+        return;
+    }
+    // Turning it on: if we've never picked a folder (or the browser's
+    // permission grant for a previously-picked one has lapsed), this is
+    // the one moment we have an actual user gesture (the click on this
+    // checkbox) to work with — file pickers and permission re-prompts
+    // both require one, so this is the only reliable place to ask.
+    if (typeof _customMusicScan === 'function') {
+        const ok = await _customMusicScan();
+        if (!ok && typeof _customMusicPickFolder === 'function') {
+            await _customMusicPickFolder();
+        }
+    }
     if (_musicContext && typeof _musicPlayTrack === 'function') _musicPlayTrack(_musicContext);
 }
 

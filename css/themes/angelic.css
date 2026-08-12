@@ -24,6 +24,8 @@ body.theme-angelic #game-container {
 body.theme-angelic #game-container::before { background: #ffffff !important; border-radius: 0 !important; }
 body.theme-angelic #game-container::after  { display: none !important; }
 
+/* Battle board background — see cyberpunk.css for why this is needed. */
+body.theme-angelic #board { background: #f8f9fa !important; }
 body.theme-angelic #menu-bg { background: #f8f9fa !important; }
 
 body.theme-angelic .screen {

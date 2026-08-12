@@ -96,6 +96,9 @@ function awardXP(amount, reason) {
 
     // Show XP toast
     _xpToast(amount, reason, newLvl, prevLvl !== newLvl);
+    if (typeof playSfx === 'function') {
+        playSfx(prevLvl !== newLvl && newLvl > prevLvl ? 'levelUp' : 'xpGain');
+    }
 
     // Update all displays
     _xpUpdateDisplays();
@@ -149,7 +152,8 @@ let _speedrunSyncTimer = null;
 function _speedrunSyncToSupabase() {
     clearTimeout(_speedrunSyncTimer);
     _speedrunSyncTimer = setTimeout(async () => {
-        const sb  = window._supabase;
+        // profiles = identity data, always home region (see supabase.js)
+        const sb  = window._supabaseHome;
         const uid = typeof _getOnlineUid === 'function' ? _getOnlineUid() : null;
         if (!sb || !uid) return;
         try {
@@ -166,7 +170,8 @@ let _xpSyncTimer = null;
 function _xpSyncToSupabase() {
     clearTimeout(_xpSyncTimer);
     _xpSyncTimer = setTimeout(async () => {
-        const sb  = window._supabase;
+        // profiles = identity data, always home region (see supabase.js)
+        const sb  = window._supabaseHome;
         const uid = window._syncedUid;
         if (!sb || !uid) return;
         try {

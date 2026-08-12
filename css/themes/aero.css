@@ -62,6 +62,12 @@ body.theme-aero #game-container::before {
 }
 body.theme-aero #game-container::after { display: none !important; }
 
+/* Battle board background — see cyberpunk.css for why this is needed. */
+body.theme-aero #board {
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(90,195,240,.22) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(80,220,140,.18) 0%, transparent 50%) !important;
+}
 body.theme-aero #menu-bg {
     background:
         radial-gradient(ellipse at 18% 8%, rgba(255,255,255,.7) 0%, transparent 30%),

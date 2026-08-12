@@ -52,8 +52,9 @@ function _loadEquippedCosmetics() {
 function _saveEquippedCosmetics() {
     try { localStorage.setItem('dr_equipped_cosmetics', JSON.stringify(_equippedCosmetics)); } catch (e) {}
     // Best-effort cloud sync, same pattern as profile saves — never blocks the UI.
-    if (window._supabase && typeof _syncedUid !== 'undefined' && _syncedUid) {
-        window._supabase.from('profiles').update({ equipped_cosmetics: _equippedCosmetics })
+    // profiles = identity data, always home region (see supabase.js).
+    if (window._supabaseHome && typeof _syncedUid !== 'undefined' && _syncedUid) {
+        window._supabaseHome.from('profiles').update({ equipped_cosmetics: _equippedCosmetics })
             .eq('id', _syncedUid).then(({ error }) => {
                 if (error) console.warn('[customize] cloud sync failed', error);
             });
@@ -99,7 +100,7 @@ function _customizeSwitchTab(cls) {
 }
 
 function _customizeEquip(itemId) {
-    playSfx('menuClick');
+    playSfx('equipItem');
     const item = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : []).find(i => i.id === itemId);
     if (!item) return;
     // Clicking an already-equipped item unequips it; otherwise it swaps

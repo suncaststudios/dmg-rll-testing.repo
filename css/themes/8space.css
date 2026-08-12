@@ -52,6 +52,10 @@ body.theme-8space #game-container::before {
     border-radius: 0 !important;
 }
 
+/* Battle board background — see cyberpunk.css for why this is needed. */
+body.theme-8space #board {
+    background: linear-gradient(180deg, #05030d, #08051a 40%, #050310) !important;
+}
 body.theme-8space #menu-bg {
     background: linear-gradient(180deg, #05030d, #08051a 40%, #050310) !important;
 }

@@ -10,6 +10,10 @@
         'asia':    { label: 'AP Southeast', url: 'https://ndmfenkgsnvcxzdcibss.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kbWZlbmtnc252Y3h6ZGNpYnNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyOTc3NjksImV4cCI6MjEwMDg3Mzc2OX0.A92Ecyk9c63RPYqe9B_WbsIT3z53K1xVbXOc-fSAisc' },
     };
     const DEFAULT_SERVER_REGION = 'us-east';
+    // The "home" region — where identity/progression data always lives,
+    // regardless of which region the player has picked for matchmaking.
+    // See the big comment block below for why this split exists.
+    const HOME_REGION = 'us-east';
 
     function _isConfigured(region) {
         const s = SUPABASE_SERVERS[region];
@@ -32,8 +36,74 @@
     window._supabaseActiveRegion = _activeRegion;
 
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    /* ── Identity bridge: trust Firebase logins for RLS ────────────────
+       Login happens exclusively through Firebase (see firebase-auth.js);
+       Supabase never gets a login of its own. Every RLS policy in this
+       codebase that checks auth.uid() (profiles, clubs, club_tournaments)
+       was written assuming Supabase's own auth.uid() would reflect the
+       logged-in user — without this, that's permanently null and those
+       policies reject every write, no matter how legitimate.
+
+       supabase-js v2's `accessToken` option lets a request carry a
+       caller-supplied bearer token instead of Supabase's own session —
+       here, the current Firebase ID token. Supabase verifies that token
+       itself (Firebase's public keys, standard JWT signature check) and
+       populates auth.uid() from it — no Supabase login step, no service
+       key, no custom server code, and every existing auth.uid()-based
+       policy in the dashboard starts working exactly as originally
+       written.
+
+       ⚠️ ONE-TIME DASHBOARD STEP REQUIRED (per Supabase project/region):
+       Supabase → Authentication → Sign In / Providers → Third Party Auth
+       → Add provider → Firebase → paste this project's Firebase Project
+       ID ("damage-roll", from FIREBASE_CONFIG in firebase-auth.js).
+       Until that's done here, this callback has no effect — the token
+       gets sent, but Supabase won't yet recognize this project as a
+       trusted issuer, so auth.uid() stays null and it fails exactly like
+       before. This needs to be repeated for every region actually put
+       into use (only "us-east" is a real project right now). */
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+        accessToken: async () => {
+            try {
+                return (typeof window._fbGetAccessToken === 'function')
+                    ? await window._fbGetAccessToken()
+                    : null;
+            } catch (e) { return null; }
+        },
+    });
     window._supabase = sb;
+
+    /* ── Home client: identity/progression, pinned to one region ──────────
+       window._supabase above follows whatever region the player picks for
+       matchmaking (Settings → Offline/Bot... → Server Region) — right for
+       online_rooms/match_queue/lobby_rooms, which genuinely benefit from
+       being close to the player, but wrong for everything else. Each
+       region is a fully separate Supabase project with its own database
+       and zero replication between them, so a player who switches regions
+       would otherwise have their profile, XP, wins, clubs, and shop
+       inventory silently vanish — the new region's database has simply
+       never seen their uid before, and they'd look like a brand new
+       account rather than "the same account, elsewhere."
+       Weekly tournaments and shop popularity are deliberately kept on the
+       region-switchable client instead (per-region leaderboards/trends
+       are the intended behavior there, not a bug) — everything else that
+       reads/writes 'profiles', 'clubs', 'club_tournaments', 'shop_owned',
+       or 'quest_claims' should use this client instead so that data stays
+       put regardless of which region is active for matchmaking. */
+    const sbHome = (_activeRegion === HOME_REGION) ? sb : createClient(
+        SUPABASE_SERVERS[HOME_REGION].url,
+        SUPABASE_SERVERS[HOME_REGION].key,
+        {
+            accessToken: async () => {
+                try {
+                    return (typeof window._fbGetAccessToken === 'function')
+                        ? await window._fbGetAccessToken()
+                        : null;
+                } catch (e) { return null; }
+            },
+        }
+    );
+    window._supabaseHome = sbHome;
 
     /* ── _db: thin wrapper so the rest of the game code is unchanged ──────────
        Rooms and matchmaking use the Supabase `online_rooms` / `match_queue`

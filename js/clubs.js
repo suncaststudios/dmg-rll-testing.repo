@@ -1,5 +1,11 @@
 /* CLUBS SYSTEM  –  Supabase backend
    ---------------------------------------------------------------
+   Uses window._supabaseHome (not the region-switchable window._supabase)
+   — clubs are identity/progression data like profiles, not matchmaking
+   data, and owner_id is even a foreign key into profiles(id), so this
+   table can't live in a different database than profiles anyway. See
+   the comment above window._supabaseHome's definition in supabase.js.
+
    SQL (run in Supabase SQL Editor):
 
    create table clubs (
@@ -74,7 +80,7 @@ function _clubsCloseCreateModal() {
 }
 
 async function _loadMyClub() {
-    const sb = window._supabase;
+    const sb = window._supabaseHome;
     if (!sb || !_syncedUid) { _renderMyClub(null); return; }
     try {
         const { data: profile } = await sb
@@ -114,7 +120,7 @@ function _renderMyClub(club) {
 }
 
 async function _loadLeaderboard() {
-    const sb   = window._supabase;
+    const sb   = window._supabaseHome;
     const list = document.getElementById('clubs-lb-list');
     if (!sb || !list) return;
     try {
@@ -148,7 +154,7 @@ async function _loadLeaderboard() {
 }
 
 async function searchClubs() {
-    const sb  = window._supabase;
+    const sb  = window._supabaseHome;
     const q   = (document.getElementById('clubs-search-input')?.value||'').trim();
     const out = document.getElementById('clubs-browse-list');
     if (!sb || !out) return;
@@ -186,7 +192,7 @@ function _refreshCreatePanel() {
 }
 
 async function createClub() {
-    const sb       = window._supabase;
+    const sb       = window._supabaseHome;
     const statusEl = document.getElementById('club-create-status');
     if (!sb || !_syncedUid) { if (statusEl) statusEl.textContent = 'Sign in first.'; return; }
     const name  = (document.getElementById('club-create-name')?.value  ||'').trim();
@@ -207,6 +213,7 @@ async function createClub() {
         _clubsState.myClub = club;
         _clubsState.myRole = 'owner';
         if (statusEl) statusEl.textContent = 'Club founded!';
+        if (typeof playSfx === 'function') playSfx('clubCreate');
         setTimeout(_clubsCloseCreateModal, 1200);
         setTimeout(() => switchClubsTab('my-club'), 1000);
     } catch(e) {
@@ -216,18 +223,19 @@ async function createClub() {
 }
 
 async function joinClubById(clubId) {
-    const sb = window._supabase;
+    const sb = window._supabaseHome;
     if (!sb || !_syncedUid) { _showGoldToast('Sign in to join a club.'); return; }
     if (_clubsState.myClub) { _showGoldToast('Leave your current club first.'); return; }
     try {
         await sb.from('profiles').update({ club_id: clubId }).eq('id', _syncedUid);
         await _loadMyClub();
         switchClubsTab('my-club');
+        if (typeof playSfx === 'function') playSfx('clubJoin');
     } catch(e) { console.warn('[DR Clubs] joinClubById error', e); }
 }
 
 async function leaveClub() {
-    const sb = window._supabase;
+    const sb = window._supabaseHome;
     if (!sb || !_syncedUid || !_clubsState.myClub) return;
     if (!confirm('Leave ' + _clubsState.myClub.name + '?')) return;
     try {
@@ -295,7 +303,7 @@ function _loadClubTournamentTab() {
 
 /* ── Fetch active and pending tournaments for our club ── */
 async function _fetchClubTournaments() {
-    const sb = window._supabase;
+    const sb = window._supabaseHome;
     if (!sb || !_clubsState.myClub) return;
     const cid = _clubsState.myClub.id;
     try {
@@ -372,7 +380,7 @@ function _renderClubTournaments(rows) {
 
 /* ── Challenge another club by tag ── */
 async function clubChallenge() {
-    const sb     = window._supabase;
+    const sb     = window._supabaseHome;
     const tag    = (document.getElementById('clubs-tourn-tag-input')?.value || '').trim().toUpperCase();
     const status = document.getElementById('clubs-tourn-status');
     if (!sb || !_syncedUid)              { if (status) status.textContent = 'Sign in first.'; return; }
@@ -412,7 +420,7 @@ async function clubChallenge() {
 
 /* ── Accept a challenge ── */
 async function acceptClubChallenge(tournId) {
-    const sb = window._supabase;
+    const sb = window._supabaseHome;
     if (!sb) return;
     try {
         await sb.from('club_tournaments').update({ status: 'active' }).eq('id', tournId);
@@ -422,7 +430,7 @@ async function acceptClubChallenge(tournId) {
 
 /* ── Cancel / decline a challenge ── */
 async function cancelClubChallenge(tournId) {
-    const sb = window._supabase;
+    const sb = window._supabaseHome;
     if (!sb) return;
     try {
         await sb.from('club_tournaments').delete().eq('id', tournId);
@@ -432,7 +440,7 @@ async function cancelClubChallenge(tournId) {
 
 /* ── Record a match result for an active club tournament ── */
 async function recordClubTournamentWin(winnersClubId) {
-    const sb = window._supabase;
+    const sb = window._supabaseHome;
     if (!sb || !_clubsState.myClub) return;
     const myId = _clubsState.myClub.id;
     try {

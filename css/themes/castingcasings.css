@@ -29,6 +29,13 @@ body.theme-castingcasings #game-container::before {
     background: radial-gradient(ellipse at 50% 0%, #1c1128 0%, #100a18 55%, #0a060f 100%) !important;
 }
 
+/* Battle board background — see cyberpunk.css for why this is needed. */
+body.theme-castingcasings #board {
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(150,80,255,.16) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(200,150,60,.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(18,10,30,.4) 0%, transparent 70%) !important;
+}
 body.theme-castingcasings #menu-bg {
     background:
         radial-gradient(ellipse at 22% 30%, rgba(150,80,255,.14) 0%, transparent 42%),

@@ -771,11 +771,15 @@ function _lobbyReceiveChallenge(payload) {
     if (payload.to !== _getOnlineUid()) return;
     _lobbyPendingChallenges.add(payload.from + '-' + _getOnlineUid());
     _lobbyChatSystem(`⚔ ${payload.fromName} challenged you to a duel! Click their name → Challenge to accept.`);
+    if (typeof playSfx === 'function') playSfx('notification');
 }
 
 /* ══════════════════ VIEW PROFILE ══════════════════ */
 function _lobbyViewProfile(uid) {
-    const sb = window._supabase;
+    // profiles = identity data, always home region (see supabase.js) —
+    // a player's own profile looks the same no matter which lobby/region
+    // someone is viewing it from.
+    const sb = window._supabaseHome;
     // Build/show modal immediately with loading state
     let modal = document.getElementById('lobby-profile-modal');
     if (!modal) {

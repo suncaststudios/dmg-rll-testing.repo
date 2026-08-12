@@ -241,9 +241,10 @@ function saveProfile() {
     _updateCornerBtn();
     if (typeof updateClubTitle === 'function') updateClubTitle();
     // ONE batched DB write — only if logged in
+    // profiles = identity data, always home region (see supabase.js).
     const msg = el('profile-save-msg');
-    if (window._supabase && _syncedUid) {
-        window._supabase.from('profiles').update({
+    if (window._supabaseHome && _syncedUid) {
+        window._supabaseHome.from('profiles').update({
             username:   _profileData.username,
             avatar:     _profileData.avatar,
             avatar_img: _profileData.avatarImg || '',

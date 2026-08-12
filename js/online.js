@@ -387,7 +387,10 @@ function _refreshSettingsUI() {
 ======================================================================= */
 
 async function _submitMatchResult(won) {
-    const sb  = window._supabase;
+    // profiles = identity data, always home region (see supabase.js) —
+    // wins/losses should accumulate the same regardless of which region
+    // the match was actually played on.
+    const sb  = window._supabaseHome;
     if (!sb || !_syncedUid) return;
 
     try {

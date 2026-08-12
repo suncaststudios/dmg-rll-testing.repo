@@ -206,6 +206,7 @@ function saveDeckData() {
         localStorage.setItem(DECKS_KEY + '_selected', selectedDeckId);
         const msg = document.getElementById('deck-save-msg');
         if (msg) { msg.style.opacity = '1'; setTimeout(() => msg.style.opacity = '0', 1800); }
+        if (typeof playSfx === 'function') playSfx('deckSave');
     } catch(e) { console.warn('Deck save failed', e); }
 }
 
@@ -238,6 +239,7 @@ function unlockAch(id) {
     unlockedAchs.add(id);
     saveAchievements();
     showAchToast(def);
+    if (typeof playSfx === 'function') playSfx('achievementUnlock');
     if (document.getElementById('menu-achievements').style.display !== 'none') renderAchGrid();
     // Award gold based on rarity
     const goldByRarity = { common:15, uncommon:25, rare:40, epic:75, legendary:150 };
@@ -675,7 +677,7 @@ function applyColorblind() {
 
 /* ── _pushStatsCloud — syncs achievement stats to Supabase (fire-and-forget) ── */
 function _pushStatsCloud() {
-    const sb  = window._supabase;
+    const sb  = window._supabaseHome; // profiles = identity data, always home region
     if (!sb || !_syncedUid) return;
     // Collect current stats from localStorage
     const statsRaw = localStorage.getItem('dr_stats');

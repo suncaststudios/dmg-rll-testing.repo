@@ -51,10 +51,11 @@ async function _authLogin() {
     btn.disabled = true; btn.textContent = 'Logging in…'; err.textContent = '';
     try {
         const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-        if (error) { err.textContent = error.message; return; }
+        if (error) { err.textContent = error.message; playSfx?.('error'); return; }
         await _authOnLogin(data.user);
     } catch(e) {
         err.textContent = 'Connection error — try again.';
+        playSfx?.('error');
     } finally {
         btn.disabled = false; btn.textContent = '⚔ Login';
     }
@@ -294,6 +295,20 @@ async function _authCreateProfile() {
             }
         }
 
+        // 2b. Force-refresh the ID token before writing to Supabase. The
+        // onUserCreate Cloud Function (functions/index.js) sets the
+        // `role: authenticated` custom claim Supabase needs to treat this
+        // request as a logged-in user rather than anon — but that trigger
+        // runs asynchronously, not as part of signUp() itself, so the very
+        // first token issued here is very likely to predate it. Firebase's
+        // own docs call this out specifically: force-refreshing immediately
+        // after signup is what picks up a token containing the new claim
+        // instead of the stale pre-claim one from signUp()'s response.
+        try {
+            const fbUser = (typeof firebase !== 'undefined') ? firebase.auth().currentUser : null;
+            if (fbUser) await fbUser.getIdToken(/* forceRefresh */ true);
+        } catch (e) { console.warn('[DR Auth] token refresh before profile write failed', e); }
+
         // 3. Upsert profile row (upsert = safe even if row already exists)
         const { error: profErr } = await sb.from('profiles').upsert({
             id:            uid,
@@ -348,6 +363,7 @@ async function _authOnLogin(user) {
     _renderProfileView();
     if (typeof updateClubTitle === 'function') updateClubTitle();
     _updateStartScreen();
+    if (typeof playSfx === 'function') playSfx('loginSuccess');
     // Daily login gold
     _authCheckDailyLoginGold();
     // Fire any pending gate fn (e.g. player tried to go online)

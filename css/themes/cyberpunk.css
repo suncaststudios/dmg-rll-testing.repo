@@ -56,6 +56,16 @@ body.theme-cyberpunk #game-container::before {
     border-radius: 0 !important;
 }
 
+/* Battle board background — was previously left to main.css's default
+   warm-amber #board rule (which wins via ID specificity over any generic
+   .screen override), so the fight screen stayed the default theme's colors
+   no matter which theme was active. Each theme now sets its own. */
+body.theme-cyberpunk #board {
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(255,0,155,.16) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(0,200,255,.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(10,0,20,.4) 0%, transparent 70%) !important;
+}
 body.theme-cyberpunk #menu-bg {
     background:
         repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,255,.012) 2px, rgba(0,255,255,.012) 3px),

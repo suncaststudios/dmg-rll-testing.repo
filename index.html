@@ -1508,6 +1508,12 @@
                         <label class="settings-check"><input type="checkbox" id="opt-legacy-music" onchange="setLegacyMusicToggle(this.checked); saveSettings();"> Legacy Music</label>
                         <span class="settings-hint">play the legacy music of damage roll instead of the current music! (please note this does not effect all themes)</span>
                     </div>
+                    <div class="settings-item">
+                        <label class="settings-check"><input type="checkbox" id="opt-custom-music" onchange="setCustomMusicToggle(this.checked); saveSettings();"> Custom Music</label>
+                        <span class="settings-hint">play your own tracks — drop audio files into "main menu" and "combat" inside sounds/songs/custom music/. First time you turn this on, you'll be asked to pick that folder. Falls back to Legacy/Default music if a folder's empty.</span>
+                        <button class="btn" style="margin-top:6px;font-size:11px;padding:6px 10px;" onclick="playSfx('menuClick'); customMusicShowInExplorer();" id="opt-custom-music-explorer-btn">📁 Show Custom Music Folder</button>
+                        <span class="settings-hint" id="opt-custom-music-reauth-hint" style="display:none;color:#e0a030;">Permission to read your custom music folder has lapsed (this happens on browser restart sometimes) — click the button above to re-allow it.</span>
+                    </div>
                 </div>
 
                 <div class="settings-col">
@@ -1766,7 +1772,9 @@
 <script src="js/xp.js"></script>
 
 <!-- CORE ENGINE (defines state, render, toggle, playSfx, delay, opt) -->
+<script src="sounds/sfx code/sfx-engine.js"></script>
 <script src="js/game.js"></script>
+<script src="js/custom-music.js"></script>
 <script src="js/music.js"></script>
 <script src="js/visualizer.js"></script>
 <script src="js/game-helpers.js"></script>

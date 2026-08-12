@@ -238,11 +238,12 @@ function claimQuest(questId) {
     if (typeof _recordChallengeCompleted === 'function') _recordChallengeCompleted();
 
     _questRenderIfOpen();
-    playSfx('heal');
+    playSfx('questComplete');
 }
 
 async function _questSyncClaim(questId, def) {
-    const sb  = window._supabase;
+    // quest_claims = personal progression, always home region (see supabase.js)
+    const sb  = window._supabaseHome;
     const uid = window._syncedUid;
     if (!sb || !uid) return;
     try {

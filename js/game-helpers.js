@@ -64,13 +64,17 @@
     
     
     window._copyToClipboard = function (text, onSuccess, onFail) {
+        const wrappedSuccess = () => {
+            if (typeof playSfx === 'function') playSfx('copyLink');
+            if (onSuccess) onSuccess();
+        };
         if (window.electronAPI && window.electronAPI.copyToClipboard) {
             window.electronAPI.copyToClipboard(text);
-            if (onSuccess) onSuccess();
+            wrappedSuccess();
             return;
         }
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(onSuccess).catch(onFail || (() => {}));
+            navigator.clipboard.writeText(text).then(wrappedSuccess).catch(onFail || (() => {}));
         } else {
             
             const ta = document.createElement('textarea');
@@ -78,7 +82,7 @@
             ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
             document.body.appendChild(ta);
             ta.select();
-            try { document.execCommand('copy'); if (onSuccess) onSuccess(); }
+            try { document.execCommand('copy'); wrappedSuccess(); }
             catch(e) { if (onFail) onFail(e); }
             document.body.removeChild(ta);
         }

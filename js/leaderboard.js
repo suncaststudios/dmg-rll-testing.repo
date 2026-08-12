@@ -32,7 +32,9 @@ function switchLbTab(id) {
 
 async function _fetchLbTab(id) {
     if (_lbState.loaded[id]) return; // already loaded this session
-    const sb  = window._supabase;
+    // profiles/clubs = identity data, always home region (see supabase.js) —
+    // this keeps the leaderboard consistent across regions too.
+    const sb  = window._supabaseHome;
     const panel = document.getElementById('lb-panel-' + id);
     if (!panel) return;
     if (!sb) {

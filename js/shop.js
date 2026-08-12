@@ -126,6 +126,7 @@ function shopAwardGold(amount) {
     _shopGold = Math.max(0, _shopGold + amount);
     _shopSave();
     _shopUpdateCurrencyDisplay();
+    if (amount > 0 && typeof playSfx === 'function') playSfx('goldGain');
 }
 
 /* ═══════════════════ DAILY ROTATION ════════════════════════════ */
@@ -198,7 +199,10 @@ function _shopIncrementPop(id) {
     _shopSave();
 }
 
-/* Sync pending popularity to Supabase — called before window unload */
+/* Sync pending popularity to Supabase — called before window unload.
+   Intentionally stays on the region-switchable client (window._supabase)
+   — trending items are meant to reflect each region's own player base,
+   not be merged into one global count. */
 async function _shopSyncPopularity() {
     const sb = window._supabase;
     if (!sb || !Object.keys(_shopPendingPop).length) return;
@@ -503,7 +507,7 @@ function _shopBundleClick(id) {
 }
 
 function _shopDoPurchase(item) {
-    if (_shopGold < item.price) { _shopToast('Not enough Gold!', '❌'); return; }
+    if (_shopGold < item.price) { _shopToast('Not enough Gold!', '❌'); playSfx('error'); return; }
     _shopOwned.add(item.id);
     _shopGold -= item.price;
     _shopHistory.unshift({
@@ -519,7 +523,7 @@ function _shopDoPurchase(item) {
     document.getElementById('shop-confirm-modal')?.remove();
     _shopRefreshActive();
     _shopSyncOwned();
-    playSfx('heal');
+    playSfx('purchase');
 }
 
 /* ── Refund ── */
@@ -539,7 +543,9 @@ function _shopRefund(id) {
 
 /* ── Sync owned list to Supabase ── */
 async function _shopSyncOwned() {
-    const sb  = window._supabase;
+    // shop_owned = personal inventory, always home region (see supabase.js)
+    // — items you bought shouldn't disappear if you switch server regions.
+    const sb  = window._supabaseHome;
     const uid = window._syncedUid || (typeof _syncedUid !== 'undefined' ? _syncedUid : null);
     if (!sb || !uid) return;
     try {
@@ -553,7 +559,7 @@ async function _shopSyncOwned() {
 
 /* ── Load owned from Supabase on login ── */
 async function _shopLoadOwned() {
-    const sb  = window._supabase;
+    const sb  = window._supabaseHome; // shop_owned = home region, see _shopSyncOwned above
     const uid = window._syncedUid || (typeof _syncedUid !== 'undefined' ? _syncedUid : null);
     if (!sb || !uid) return;
     try {
@@ -573,11 +579,11 @@ function _shopShowConfirm({ icon, name, type, typeColor, desc, price, note, onCo
     modal = document.createElement('div');
     modal.id = 'shop-confirm-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);';
-    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    modal.addEventListener('click', e => { if (e.target === modal) _shopCloseModal(); });
     modal.innerHTML = `
         <div style="background:linear-gradient(160deg,#1a1005,#0d0800);border:1px solid rgba(140,95,25,.45);border-radius:12px;padding:30px 34px;max-width:380px;width:90%;font-family:'Cinzel',serif;color:#d4b878;text-align:center;position:relative;">
             <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${typeColor};border-radius:12px 12px 0 0;"></div>
-            <button onclick="document.getElementById('shop-confirm-modal').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:#5a3a10;font-size:18px;cursor:pointer;">✕</button>
+            <button onclick="_shopCloseModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:#5a3a10;font-size:18px;cursor:pointer;">✕</button>
             <div style="font-size:52px;margin:10px 0 10px;">${icon}</div>
             <div style="font-size:15px;font-weight:bold;letter-spacing:1px;margin-bottom:3px;">${name}</div>
             <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:${typeColor};margin-bottom:10px;">${type}</div>
@@ -588,17 +594,30 @@ function _shopShowConfirm({ icon, name, type, typeColor, desc, price, note, onCo
             <div style="font-size:9px;color:${canAfford ? '#4a8040' : '#8b0000'};letter-spacing:1px;margin-bottom:20px;">Your balance: ${_shopGold.toLocaleString()} 🪙</div>
             ${canAfford
                 ? `<div style="display:flex;gap:10px;justify-content:center;">
-                    <button class="shop-btn shop-btn-gold" style="min-width:120px;" onclick="(${onConfirm.toString()})()">Purchase</button>
-                    <button class="shop-btn" style="border-color:rgba(100,65,20,.35);color:#5a3a10;min-width:80px;" onclick="document.getElementById('shop-confirm-modal').remove()">Cancel</button>
+                    <button class="shop-btn shop-btn-gold" data-role="confirm-purchase" style="min-width:120px;">Purchase</button>
+                    <button class="shop-btn" style="border-color:rgba(100,65,20,.35);color:#5a3a10;min-width:80px;" onclick="_shopCloseModal()">Cancel</button>
                    </div>`
                 : `<div style="font-family:'IM Fell English',serif;font-size:11px;color:rgba(180,60,60,.7);font-style:italic;margin-bottom:14px;">Not enough Gold to purchase this.</div>
-                   <button class="shop-btn" style="border-color:rgba(100,65,20,.35);color:#5a3a10;" onclick="document.getElementById('shop-confirm-modal').remove()">Close</button>`
+                   <button class="shop-btn" style="border-color:rgba(100,65,20,.35);color:#5a3a10;" onclick="_shopCloseModal()">Close</button>`
             }
         </div>`;
     document.body.appendChild(modal);
+    if (typeof playSfx === 'function') playSfx('modalOpen');
+    // Wire up the confirm button with a real listener (keeping the onConfirm
+    // closure intact) instead of serializing the function to a string and
+    // re-embedding it as an inline onclick attribute — stringifying a
+    // closure loses the variables it closed over (e.g. `item`, `bundle`,
+    // `unowned`), so the reconstructed code threw a ReferenceError and the
+    // purchase silently failed every time, for every item and bundle.
+    modal.querySelector('[data-role="confirm-purchase"]')?.addEventListener('click', onConfirm);
 }
 
 /* ─────────────────── HELPERS ─────────────────── */
+function _shopCloseModal() {
+    document.getElementById('shop-confirm-modal')?.remove();
+    if (typeof playSfx === 'function') playSfx('modalClose');
+}
+
 function _shopRefreshActive() {
     if (_shopActiveTab === 'featured')  _shopRenderFeatured();
     if (_shopActiveTab === 'cosmetics') _shopRenderCosmetics(_shopActiveSub);
@@ -616,6 +635,7 @@ function _shopToast(msg, icon = '✓') {
     }
     t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
     t.style.opacity = '1';
+    if (typeof playSfx === 'function') playSfx('toastPop');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
 }

@@ -9,12 +9,12 @@
    it — a unique constraint on (week_key) prevents two clients from
    generating it twice.
 
-   NOTE on the planned multi-region Supabase + Firebase split: this
-   still works as-is once that lands, since entries/matches are
-   regional "hot path" data (exactly the kind of thing that should
-   stay on Supabase per that design) — only the final result
-   (tournaments_won, on the winner's profile) needs to flow to
-   Firebase, same as any other match result.
+   NOTE on the multi-region Supabase split: entries/matches correctly
+   stay on the region-switchable client (window._supabase) — they're
+   regional "hot path" data, exactly the kind of thing that should stay
+   put per-region. Only the final result (tournaments_won, on the
+   winner's profile) needs to go through window._supabaseHome instead,
+   same as any other profile field — see _wtClaimChampionReward below.
 
    REQUIRED SUPABASE SCHEMA:
      create table if not exists weekly_tournament_entries (
@@ -298,8 +298,12 @@ async function _wtClaimChampionReward(weekKey) {
 
     if (typeof shopAwardGold === 'function') shopAwardGold(200);
     _showGoldToast?.('🏆 +200 🪙 Tournament Champion!');
+    if (typeof playSfx === 'function') playSfx('tournamentWin');
 
-    const sb  = window._supabase;
+    // profiles = identity data, always home region (see supabase.js) —
+    // your tournament win count shouldn't depend on which region you
+    // were playing in when you won.
+    const sb  = window._supabaseHome;
     const uid = _getOnlineUid();
     if (!sb || !uid) return;
     try {

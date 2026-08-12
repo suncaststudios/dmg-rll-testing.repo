@@ -53,6 +53,33 @@ function _fbInit() {
     _fbAuthInstance.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
 }
 
+/* ── Firebase → Supabase identity bridge ──────────────────────────────
+   Every existing Supabase RLS policy in this codebase (profiles, clubs,
+   club_tournaments — see the "create policy" comments in clubs.js) was
+   written assuming auth.uid() reflects whoever is logged in. It never
+   did, because the client only ever logs into Firebase — Supabase never
+   received a session of its own, so auth.uid() was permanently null and
+   every one of those policies silently rejected every write.
+
+   supabase-js v2 supports exactly this scenario via a third-party auth
+   `accessToken` callback passed to createClient() (see js/supabase.js):
+   Supabase can be configured (dashboard-side, once per project — see the
+   note in supabase.js) to trust and verify Firebase-issued ID tokens
+   directly, populating auth.uid() from the token's `sub` claim (the
+   Firebase UID) with no Supabase login step ever needed. This function
+   is what supplies that token on every request.
+
+   Exposed on window (not just a module-local variable) because
+   supabase.js is a `type="module"` script with its own separate scope —
+   it can't see plain top-level `let`/`const` from this classic script. */
+window._fbGetAccessToken = async function () {
+    _fbInit();
+    const user = _fbAuthInstance?.currentUser;
+    if (!user) return null;
+    try { return await user.getIdToken(); }
+    catch (e) { console.warn('[DR Auth] getIdToken failed', e); return null; }
+};
+
 function _fbErrShape(e) {
     // Map Firebase's error.code to a plain message, Supabase-shape-compatible
     const map = {
@@ -71,7 +98,12 @@ function _fbErrShape(e) {
 
 window._fbAuth = {
     /* ── Profile data still goes straight to the real Supabase client ── */
-    from: (...args) => window._supabase.from(...args),
+    /* Every call through here is a 'profiles' operation (see auth.js) —
+       identity data, so it always goes to the home region regardless of
+       which region the player picked for matchmaking. Falls back to the
+       region-switchable client only if the home client somehow isn't up
+       yet, so this never hard-fails during early page load. */
+    from: (...args) => (window._supabaseHome || window._supabase).from(...args),
 
     auth: {
         signInWithPassword: async ({ email, password }) => {

@@ -365,6 +365,15 @@ async function _authOnLogin(user) {
     _renderProfileView();
     if (typeof updateClubTitle === 'function') updateClubTitle();
     _updateStartScreen();
+    // _isLoggedIn() reads Firebase's currentUser synchronously, which can
+    // still be null for a moment right after page load even for a
+    // returning, already-logged-in user (that's why getSession() above
+    // waits on onAuthStateChanged instead). So cosmetics may have loaded
+    // as "logged out" during that window — now that login is confirmed,
+    // reload them for real and refresh anything already on screen.
+    if (typeof _loadEquippedCosmetics === 'function') _loadEquippedCosmetics();
+    if (typeof _customizeRenderPreview === 'function') _customizeRenderPreview(null);
+    if (typeof _customizeSwitchTab === 'function' && typeof _customizeActiveTab !== 'undefined') _customizeSwitchTab(_customizeActiveTab);
     if (typeof playSfx === 'function') playSfx('loginSuccess');
     // Daily login gold
     _authCheckDailyLoginGold();
@@ -629,6 +638,13 @@ async function _prefLogout() {
     window._syncedUid = null;
     _profileData._isSetup = false;
     if (sb) await sb.auth.signOut();
+    // Cosmetics shouldn't stick around once signed out — reload (which will
+    // now come back empty since _isLoggedIn() is false) and refresh
+    // anything currently rendered so it disappears immediately rather than
+    // waiting for the next screen open.
+    if (typeof _loadEquippedCosmetics === 'function') _loadEquippedCosmetics();
+    if (typeof _customizeRenderPreview === 'function') _customizeRenderPreview(null);
+    if (typeof _customizeSwitchTab === 'function' && typeof _customizeActiveTab !== 'undefined') _customizeSwitchTab(_customizeActiveTab);
     _updateStartScreen();
     _showAuthWall();
 }

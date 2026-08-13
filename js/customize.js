@@ -44,6 +44,13 @@ function _loadEquippedCosmetics() {
     // window._equippedCosmetics — captured once on DOMContentLoaded —
     // never goes stale after a reload from storage.
     Object.assign(_equippedCosmetics, { hat: null, aura: null, card: null, font: null });
+
+    // Guests (not logged in) never have cosmetics active — dr_equipped_cosmetics
+    // is plain localStorage, so without this check whatever the last logged-in
+    // account on this browser had equipped would keep showing up (main menu
+    // card, in combat, everywhere) even after signing out.
+    if (typeof _isLoggedIn === 'function' && !_isLoggedIn()) return;
+
     try {
         const raw = localStorage.getItem('dr_equipped_cosmetics');
         if (raw) Object.assign(_equippedCosmetics, JSON.parse(raw));
@@ -76,15 +83,27 @@ function _customizeSwitchTab(cls) {
     _customizeActiveTab = cls;
     document.querySelectorAll('.customize-tab').forEach(t => t.classList.toggle('active', t.dataset.class === cls));
 
-    const items = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : [])
-        .filter(i => i.class === cls && typeof _shopOwned !== 'undefined' && _shopOwned.has(i.id));
+    // Guests (not logged in) don't get to browse or equip cosmetics —
+    // _shopOwned is just localStorage, so without this check whatever the
+    // last logged-in account on this browser owned would still show up
+    // and be equippable for anyone using the machine afterward.
+    const loggedIn = typeof _isLoggedIn === 'function' ? _isLoggedIn() : true;
+    const items = loggedIn
+        ? (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : [])
+            .filter(i => i.class === cls && typeof _shopOwned !== 'undefined' && _shopOwned.has(i.id))
+        : [];
     const grid  = document.getElementById('customize-item-grid');
     const empty = document.getElementById('customize-empty');
     if (!grid) return;
 
     if (!items.length) {
         grid.innerHTML = '';
-        if (empty) empty.style.display = 'block';
+        if (empty) {
+            empty.style.display = 'block';
+            empty.textContent = loggedIn
+                ? "You don't own any items in this category yet. Check the Shop!"
+                : 'Log in to view and equip your cosmetics.';
+        }
         return;
     }
     if (empty) empty.style.display = 'none';
@@ -101,6 +120,11 @@ function _customizeSwitchTab(cls) {
 }
 
 function _customizeEquip(itemId) {
+    // Defense-in-depth: guests shouldn't be able to equip anything even
+    // if this gets called directly (the grid itself is empty for them,
+    // per _customizeSwitchTab, so this is a backstop, not the main gate).
+    if (typeof _isLoggedIn === 'function' && !_isLoggedIn()) return;
+
     playSfx('equipItem');
     const item = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : []).find(i => i.id === itemId);
     if (!item) return;

@@ -1778,6 +1778,29 @@
             </div>
         </div>
     </div>
+
+    <!-- ── Corner ad box: rotates through a few small self-promo slides.
+         Lives inside #game-container (which is its own stacking context
+         via transform:scale for UI Scale) so its z-index actually ranks
+         against menu screens instead of floating above the whole game. ── -->
+    <div id="ad-box" onclick="_adBoxOpenModal()">
+        <div id="ad-box-track"></div>
+    </div>
+
+    <!-- ── Ad box modal: bigger detail view, opened by clicking the corner box ── -->
+    <div id="ad-modal-overlay" onclick="if(event.target===this) _adModalClose()">
+        <div id="ad-modal">
+            <button id="ad-modal-close" onclick="_adModalClose()" title="Close">✕</button>
+            <button id="ad-modal-arrow-left" class="ad-modal-arrow ad-modal-arrow-left" onclick="_adModalStep(-1)" title="Previous">‹</button>
+            <button id="ad-modal-arrow-right" class="ad-modal-arrow ad-modal-arrow-right" onclick="_adModalStep(1)" title="Next">›</button>
+            <div id="ad-modal-title"></div>
+            <div id="ad-modal-content">
+                <div id="ad-modal-desc"></div>
+                <div id="ad-modal-icon"></div>
+            </div>
+            <button id="ad-modal-action" onclick="_adModalAction()"></button>
+        </div>
+    </div>
 </div>
 
 <!-- XP & LEVEL SYSTEM (must load before auth.js and achievements.js) -->
@@ -2041,11 +2064,6 @@
     </div>
 
     <div id="intro-hint">Click anywhere to skip</div>
-</div>
-
-<!-- ── Corner ad box: rotates through a few small self-promo slides ── -->
-<div id="ad-box">
-    <div id="ad-box-track"></div>
 </div>
 
 <script src="js/intro.js"></script>

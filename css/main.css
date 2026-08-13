@@ -3020,53 +3020,129 @@
         }
         .customize-aura.on { opacity: 1; }
 
-        /* ── Corner ad box (bottom-right, self-promo carousel) ── */
+        /* ── Corner ad box (bottom-right, self-promo carousel) ──
+           Sized up per feedback (was 190×62). Colors pull from the same
+           theme variables the rest of the chrome uses, so switching
+           themes actually re-skins it instead of leaving it stuck on
+           the default palette. */
         #ad-box {
-            position: fixed; right: 14px; bottom: 14px;
-            width: 190px; height: 62px;
+            position: absolute; right: 16px; bottom: 16px;
+            width: 240px; height: 78px;
             background: rgba(10,6,2,.94);
-            border: 1px solid rgba(140,95,25,.5);
-            border-radius: 8px;
+            border: 1px solid var(--paper-deep, rgba(140,95,25,.5));
+            border-radius: 9px;
             box-shadow: 0 6px 22px rgba(0,0,0,.6);
             overflow: hidden;
-            z-index: 40;
+            z-index: 50;
             cursor: pointer;
+            transition: border-color .2s, transform .15s;
         }
-        #ad-box:hover { border-color: rgba(200,160,40,.75); }
+        #ad-box:hover { border-color: var(--gold, rgba(200,160,40,.75)); transform: translateY(-2px); }
+        /* Hidden whenever a submenu screen or the combat board is open —
+           JS toggles this class in _adBoxUpdateVisibility(). */
+        #ad-box.ad-box-hidden { display: none; }
         #ad-box-track {
             position: relative; width: 100%; height: 100%;
         }
         .ad-slide {
             position: absolute; inset: 0;
-            display: flex; align-items: center; gap: 10px;
-            padding: 0 12px;
+            display: flex; align-items: center; gap: 12px;
+            padding: 0 14px;
             opacity: 0;
             transition: opacity .5s ease;
             pointer-events: none;
         }
         .ad-slide.active { opacity: 1; pointer-events: auto; }
         .ad-slide-icon {
-            font-size: 20px; flex: 0 0 auto;
-            filter: drop-shadow(0 0 4px rgba(200,160,40,.4));
+            font-size: 26px; flex: 0 0 auto;
+            filter: drop-shadow(0 0 4px var(--gold, rgba(200,160,40,.4)));
         }
-        .ad-slide-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .ad-slide-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
         .ad-slide-title {
-            font-family: 'Cinzel', serif; font-size: 10.5px; letter-spacing: .5px;
-            color: #e8c870; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .5px;
+            color: var(--ui-text-bright, #e8c870); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .ad-slide-sub {
-            font-size: 9px; color: #8a7050; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-size: 10px; color: var(--ui-text-dim, #8a7050); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         #ad-box-dots {
-            position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
             display: flex; gap: 4px;
         }
         .ad-dot {
             width: 4px; height: 4px; border-radius: 50%;
-            background: rgba(140,95,25,.5);
+            background: var(--paper-deep, rgba(140,95,25,.5));
             transition: background .3s;
         }
-        .ad-dot.active { background: rgba(232,200,112,.9); }
+        .ad-dot.active { background: var(--gold, rgba(232,200,112,.9)); }
+
+        /* ── Ad box modal (opened by clicking the corner box) ── */
+        #ad-modal-overlay {
+            display: none; position: absolute; inset: 0;
+            background: rgba(4,1,0,.78);
+            z-index: 99400;
+            align-items: center; justify-content: center;
+        }
+        #ad-modal-overlay.open { display: flex; }
+        #ad-modal {
+            position: relative;
+            width: min(560px, 82%);
+            background: var(--paper, #e8d5b0);
+            border: 1px solid var(--paper-deep, #c29a6b);
+            border-radius: 16px;
+            padding: 26px 30px 22px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.6);
+        }
+        #ad-modal-close {
+            position: absolute; top: 12px; right: 14px;
+            background: none; border: none; cursor: pointer;
+            font-size: 16px; color: var(--ink, #1a0e05); opacity: .55;
+            transition: opacity .15s;
+        }
+        #ad-modal-close:hover { opacity: 1; }
+        #ad-modal-title {
+            font-family: 'Cinzel', serif; font-size: 22px; letter-spacing: .5px;
+            color: var(--ink, #1a0e05); margin-bottom: 18px;
+        }
+        #ad-modal-content {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 22px; margin-bottom: 20px;
+        }
+        #ad-modal-desc {
+            flex: 1 1 auto; font-family: 'IM Fell English', serif;
+            font-size: 15px; line-height: 1.6; color: var(--ui-text-mid, #4a3620);
+        }
+        #ad-modal-icon {
+            flex: 0 0 auto; width: 120px; height: 120px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 56px;
+            background: var(--paper-deep, #c29a6b);
+            border-radius: 12px;
+        }
+        #ad-modal-action {
+            font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 11px 22px;
+            background: var(--gold, #ffd700);
+            color: var(--ink, #1a0e05);
+            border: none; border-radius: 8px;
+            cursor: pointer;
+            transition: filter .15s, transform .15s;
+        }
+        #ad-modal-action:hover { filter: brightness(1.08); transform: translateY(-1px); }
+        .ad-modal-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px;
+            background: rgba(0,0,0,.06);
+            border: none; border-radius: 50%;
+            font-size: 20px; color: var(--ink, #1a0e05);
+            opacity: .5;
+            cursor: pointer;
+            transition: opacity .15s, background .15s;
+        }
+        .ad-modal-arrow:hover { opacity: 1; background: rgba(0,0,0,.12); }
+        .ad-modal-arrow-left  { left: -54px; }
+        .ad-modal-arrow-right { right: -54px; }
 
         /* ── Cod3breaker aura: scanlines + falling matrix code on the card itself ── */
         .cod3breaker-fx {
@@ -3659,6 +3735,42 @@
     }
 
     
+    /* Real per-theme variable overrides, matching the actual theme swatches
+       in Settings (data-theme="space"/"aero"/"cyberpunk"/"scourge"/
+       "angelic"/"8space"/"castingcasings" — NOT the old blood/arcane/ocean/
+       forest/ash/gold/ice set above, which doesn't correspond to any real
+       swatch and was never actually reachable). Drives the ad box and any
+       other chrome built on --paper/--ink/--gold/--ui-text-* so those
+       elements actually re-skin when the theme changes. */
+    body.theme-space {
+        --paper:#1c1c3a; --paper-deep:#0f0f26; --ink:#d8d8ff;
+        --gold:#8a8aff; --ui-text-bright:#c0c0ff; --ui-text-mid:#8a8ac0; --ui-text-dim:#55558a;
+    }
+    body.theme-aero {
+        --paper:#eaf7f5; --paper-deep:#bfe6e0; --ink:#0d3b3a;
+        --gold:#5fb8c7; --ui-text-bright:#0d3b3a; --ui-text-mid:#2a6b68; --ui-text-dim:#5a9490;
+    }
+    body.theme-cyberpunk {
+        --paper:#170028; --paper-deep:#0a001a; --ink:#ff5fe0;
+        --gold:#ff2fd0; --ui-text-bright:#ff8ff0; --ui-text-mid:#c060b0; --ui-text-dim:#7a3a70;
+    }
+    body.theme-scourge {
+        --paper:#0c1c12; --paper-deep:#050603; --ink:#8fffb0;
+        --gold:#6fe05a; --ui-text-bright:#a0ffb8; --ui-text-mid:#5fb070; --ui-text-dim:#3a6a45;
+    }
+    body.theme-angelic {
+        --paper:#fffdf5; --paper-deep:#f0e6c8; --ink:#3a3020;
+        --gold:#c9a227; --ui-text-bright:#5a4a20; --ui-text-mid:#8a7540; --ui-text-dim:#a89968;
+    }
+    body.theme-8space {
+        --paper:#0c0a22; --paper-deep:#05030d; --ink:#8fe8ff;
+        --gold:#00e5ff; --ui-text-bright:#a0f0ff; --ui-text-mid:#60b8c8; --ui-text-dim:#3a7080;
+    }
+    body.theme-castingcasings {
+        --paper:#241608; --paper-deep:#120a1e; --ink:#e8c890;
+        --gold:#c89638; --ui-text-bright:#e8c870; --ui-text-mid:#a87f40; --ui-text-dim:#6a5028;
+    }
+
     body.theme-blood  { --intro-bright:#ffb0b0; --intro-mid:#d08080; --intro-dim:#7a3030; --intro-rule:rgba(180,30,30,0.25); --intro-sep:#4a1010; }
     body.theme-arcane { --intro-bright:#e8b0ff; --intro-mid:#c090e0; --intro-dim:#6a3a8a; --intro-rule:rgba(160,60,240,0.2); --intro-sep:#3a1050; }
     body.theme-ocean  { --intro-bright:#a0d8ff; --intro-mid:#80c0e0; --intro-dim:#305080; --intro-rule:rgba(40,130,220,0.2); --intro-sep:#102040; }

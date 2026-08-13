@@ -257,6 +257,9 @@ function unlockAch(id) {
 }
 
 function showAchToast(def) {
+    // Guests (not logged in) don't get achievement popups.
+    if (typeof _isLoggedIn === 'function' && !_isLoggedIn()) return;
+
     const t = document.getElementById('ach-toast');
     document.getElementById('ach-toast-icon').textContent = def.icon;
     document.getElementById('ach-toast-name').textContent = def.name;
@@ -694,6 +697,10 @@ function _pushStatsCloud() {
 
 
 function _showGoldToast(msg) {
+    // Guests (not logged in) don't get progress/reward popups — nothing
+    // is being saved to an account for them to track anyway.
+    if (typeof _isLoggedIn === 'function' && !_isLoggedIn()) return;
+
     let t = document.getElementById('gold-award-toast');
     if (!t) {
         t = document.createElement('div');

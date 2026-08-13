@@ -181,6 +181,9 @@ function _questTick(stat, amount = 1) {
 
 /* ─── Completion notification ─────────────────────────────────────── */
 function _questNotify(quest) {
+    // Guests (not logged in) don't get quest-complete popups.
+    if (typeof _isLoggedIn === 'function' && !_isLoggedIn()) return;
+
     let toast = document.getElementById('quest-complete-toast');
     if (!toast) {
         toast = document.createElement('div');

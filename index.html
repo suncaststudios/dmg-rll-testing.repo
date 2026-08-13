@@ -1517,8 +1517,8 @@
                          provided .ogg files. Re-add track UI here once wired up. -->
 
                     <div class="settings-item">
-                        <label class="settings-check"><input type="checkbox" id="opt-legacy-music" onchange="setLegacyMusicToggle(this.checked); saveSettings();"> Legacy Music</label>
-                        <span class="settings-hint">play the legacy music of damage roll instead of the current music! (please note this does not effect all themes)</span>
+                        <label class="settings-check"><input type="checkbox" id="opt-legacy-music" onchange="setLegacyMusicToggle(this.checked); saveSettings();"> Alternate Music</label>
+                        <span class="settings-hint">play the alternate music of damage roll instead of the current music! (please note this does not effect all themes)</span>
                     </div>
                     <div class="settings-item">
                         <label class="settings-check"><input type="checkbox" id="opt-custom-music" onchange="setCustomMusicToggle(this.checked); saveSettings();"> Custom Music</label>
@@ -2043,6 +2043,12 @@
     <div id="intro-hint">Click anywhere to skip</div>
 </div>
 
+<!-- ── Corner ad box: rotates through a few small self-promo slides ── -->
+<div id="ad-box">
+    <div id="ad-box-track"></div>
+</div>
+
 <script src="js/intro.js"></script>
+<script src="js/ad-box.js"></script>
 </body>
 </html>

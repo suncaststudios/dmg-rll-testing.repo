@@ -28,12 +28,15 @@ const SHOP_POOL = [
     { id:'hat_crown',    class:'hat',  name:'Thorn Crown',     icon:'👑', desc:'Thorns point outward. You got there the hard way and everyone can see it.',   price:280 },
 
     /* ── AURAS (6) ── */
-    { id:'aura_saiyan',  class:'aura', name:'Saiyan Charge',   icon:'⚡', desc:'Hair standing up, golden light everywhere. Something is about to happen.',      price:320 },
+    { id:'aura_supercharge',  class:'aura', name:'Supercharge',   icon:'⚡', desc:'Hair standing up, golden light everywhere. Something is about to happen.',      price:320 },
     { id:'aura_skulls',  class:'aura', name:'Skull Orbit',     icon:'💀', desc:'They go around and around. They seem happy enough about it.',                price:280 },
     { id:'aura_pixel',   class:'aura', name:'Pixel Glow',      icon:'🟦', desc:'8-bit glow from a time when this was as good as it got. Still holds up.',            price:240 },
     { id:'aura_flame',   class:'aura', name:'Soul Flame',      icon:'🔥', desc:'Burns cold, which shouldn\'t be possible. The hand you picked it up with disagrees.',   price:300 },
     { id:'aura_runes',   class:'aura', name:'Rune Pulse',      icon:'ᚠ',  desc:'Nobody alive can read them. The fact that they keep pulsing is probably fine.',       price:260 },
     { id:'aura_void',    class:'aura', name:'Void Tear',       icon:'🌑', desc:'Something is on the other side of that tear. It hasn\'t come through yet.',  price:400 },
+
+    /* ── VAULT-EXCLUSIVE (not for sale, not in daily rotation) ── */
+    { id:'aura_cod3breaker', class:'aura', name:'Cod3breaker', icon:'💻', desc:'Scanlines and falling code, dragged out of somewhere you weren\'t supposed to be.', hidden:true },
 
     /* ── CARDS (5) ── */
     { id:'card_trad',    class:'card', name:'Traditional',     icon:'🃏', desc:'The original look, back when the game was played on actual paper. Some say it\'s still the best.',                    price:140 },
@@ -53,7 +56,7 @@ const BUNDLE_POOL = [
     {
         id:'bundle_warmonger', name:'Warmonger Pack', icon:'⚔',
         desc:'Everything you need to hurt someone, look good doing it, and make sure they remember it.',
-        itemIds:['hat_barb','aura_saiyan','card_steel','font_display'],
+        itemIds:['hat_barb','aura_supercharge','card_steel','font_display'],
     },
     {
         id:'bundle_haunted', name:'Haunted Set', icon:'💀',
@@ -163,7 +166,7 @@ function _shopResolveDailyRotation() {
     }
     // New day — generate rotation
     const seed    = _shopDateSeed(today);
-    const items   = _shopSeededShuffle(SHOP_POOL, seed);
+    const items   = _shopSeededShuffle(SHOP_POOL.filter(i => !i.hidden), seed);
     const bundles = _shopSeededShuffle(BUNDLE_POOL, seed + 7);
     _shopDailyIds       = items.slice(0, 10).map(i => i.id);
     _shopDailyBundleIds = bundles.slice(0, 3).map(b => b.id);

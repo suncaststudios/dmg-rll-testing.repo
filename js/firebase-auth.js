@@ -80,6 +80,17 @@ window._fbGetAccessToken = async function () {
     catch (e) { console.warn('[DR Auth] getIdToken failed', e); return null; }
 };
 
+// Simple synchronous "is someone logged in right now" check, used to
+// gate player-facing notifications (XP/achievement/quest toasts, etc)
+// so guests browsing the game without an account don't get a UI full
+// of popups tied to progress that isn't actually being saved anywhere.
+function _isLoggedIn() {
+    try {
+        _fbInit();
+        return !!(_fbAuthInstance && _fbAuthInstance.currentUser);
+    } catch (e) { return false; }
+}
+
 function _fbErrShape(e) {
     // Map Firebase's error.code to a plain message, Supabase-shape-compatible
     const map = {

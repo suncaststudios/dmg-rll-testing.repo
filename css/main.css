@@ -2127,7 +2127,7 @@
         /* ── Turn indicator ── */
         #turn-indicator {
             position: absolute;
-            bottom: 200px; left: 50%; transform: translateX(-50%);
+            bottom: 215px; left: 50%; transform: translateX(-50%);
             font-family: 'Cinzel', serif;
             font-size: 11px; letter-spacing: 5px; text-transform: uppercase;
             color: rgba(200,160,60,0.8);
@@ -3019,6 +3019,93 @@
             opacity: 0; transition: opacity 0.3s;
         }
         .customize-aura.on { opacity: 1; }
+
+        /* ── Corner ad box (bottom-right, self-promo carousel) ── */
+        #ad-box {
+            position: fixed; right: 14px; bottom: 14px;
+            width: 190px; height: 62px;
+            background: rgba(10,6,2,.94);
+            border: 1px solid rgba(140,95,25,.5);
+            border-radius: 8px;
+            box-shadow: 0 6px 22px rgba(0,0,0,.6);
+            overflow: hidden;
+            z-index: 40;
+            cursor: pointer;
+        }
+        #ad-box:hover { border-color: rgba(200,160,40,.75); }
+        #ad-box-track {
+            position: relative; width: 100%; height: 100%;
+        }
+        .ad-slide {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; gap: 10px;
+            padding: 0 12px;
+            opacity: 0;
+            transition: opacity .5s ease;
+            pointer-events: none;
+        }
+        .ad-slide.active { opacity: 1; pointer-events: auto; }
+        .ad-slide-icon {
+            font-size: 20px; flex: 0 0 auto;
+            filter: drop-shadow(0 0 4px rgba(200,160,40,.4));
+        }
+        .ad-slide-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .ad-slide-title {
+            font-family: 'Cinzel', serif; font-size: 10.5px; letter-spacing: .5px;
+            color: #e8c870; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ad-slide-sub {
+            font-size: 9px; color: #8a7050; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #ad-box-dots {
+            position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 4px;
+        }
+        .ad-dot {
+            width: 4px; height: 4px; border-radius: 50%;
+            background: rgba(140,95,25,.5);
+            transition: background .3s;
+        }
+        .ad-dot.active { background: rgba(232,200,112,.9); }
+
+        /* ── Cod3breaker aura: scanlines + falling matrix code on the card itself ── */
+        .cod3breaker-fx {
+            position: absolute; inset: 0; border-radius: inherit;
+            overflow: hidden; pointer-events: none; z-index: 5;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .cod3breaker-fx.on { opacity: 1; }
+        .cod3breaker-fx::before {
+            content: ''; position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(80,255,120,0.09) 0px,
+                rgba(80,255,120,0.09) 1px,
+                transparent 2px,
+                transparent 3px
+            );
+            animation: cod3breaker-scan 6s linear infinite;
+            mix-blend-mode: screen;
+        }
+        .cod3breaker-col {
+            position: absolute; top: -50%; width: 1em;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px; line-height: 1.4;
+            color: rgba(90,255,120,0.55);
+            text-shadow: 0 0 6px rgba(90,255,120,0.6);
+            white-space: pre;
+            animation-name: cod3breaker-fall;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+        @keyframes cod3breaker-scan {
+            0%   { background-position: 0 0; }
+            100% { background-position: 0 40px; }
+        }
+        @keyframes cod3breaker-fall {
+            0%   { transform: translateY(0%); }
+            100% { transform: translateY(100%); }
+        }
         .customize-hat {
             position: absolute; top: -26px; left: 50%; transform: translateX(-50%);
             font-size: 34px; pointer-events: none;
@@ -3394,7 +3481,7 @@
             margin-bottom: 20px;
         }
         #turn-indicator {
-            position: absolute; bottom: 215px; left: 50%;
+            position: absolute; bottom: 230px; left: 50%;
             transform: translateX(-50%);
             font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 4px;
             color: rgba(180,130,40,0.6); text-transform: uppercase;

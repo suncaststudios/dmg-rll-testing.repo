@@ -224,6 +224,9 @@ function _xpUpdateDisplays() {
 /* ─── XP + level-up toast ─────────────────────────────────────── */
 let _xpToastTimer = null;
 function _xpToast(delta, reason, newLevel, leveledUp) {
+    // Guests (not logged in) don't get XP popups.
+    if (typeof _isLoggedIn === 'function' && !_isLoggedIn()) return;
+
     let toast = document.getElementById('xp-toast');
     if (!toast) {
         toast = document.createElement('div');

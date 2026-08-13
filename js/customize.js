@@ -26,12 +26,13 @@ const CUSTOMIZE_FONTS = {
     font_display: "'Cinzel Decorative', serif",
 };
 const CUSTOMIZE_AURA_RGB = {
-    aura_saiyan: '255,204,0',
+    aura_supercharge: '255,204,0',
     aura_skulls: '210,210,220',
     aura_pixel:  '70,180,255',
     aura_flame:  '255,90,30',
     aura_runes:  '110,220,140',
     aura_void:   '150,60,220',
+    aura_cod3breaker: '90,255,120',
 };
 
 let _customizeActiveTab = 'hat';
@@ -153,7 +154,37 @@ function _customizeRenderPreview(hoverItemId) {
         auraEl.classList.remove('on');
     }
 
+    _customizeUpdateCod3breakerFx(cardEl, combo.aura === 'aura_cod3breaker');
+
     if (capEl) capEl.textContent = hoverItemId ? 'Previewing' : 'Currently equipped';
+}
+
+/* Cod3breaker aura: scanlines + a handful of falling matrix-code
+   columns layered directly over the card. Built once and cached on
+   the card element, then just shown/hidden as the equipped aura
+   changes (no need to rebuild the DOM every render). */
+const _cod3breakerChars = 'アカサタナ0123456789ハミラ日ロミグウ<>{}/#*'.split('');
+function _customizeUpdateCod3breakerFx(cardEl, show) {
+    if (!cardEl) return;
+    let fx = cardEl.querySelector('.cod3breaker-fx');
+    if (show && !fx) {
+        fx = document.createElement('div');
+        fx.className = 'cod3breaker-fx';
+        const cols = 10;
+        for (let i = 0; i < cols; i++) {
+            const col = document.createElement('div');
+            col.className = 'cod3breaker-col';
+            col.style.left = `${(i / cols) * 100}%`;
+            let text = '';
+            for (let r = 0; r < 40; r++) text += _cod3breakerChars[Math.floor(Math.random() * _cod3breakerChars.length)] + '\n';
+            col.textContent = text;
+            col.style.animationDuration = `${2.5 + Math.random() * 2.5}s`;
+            col.style.animationDelay = `-${Math.random() * 4}s`;
+            fx.appendChild(col);
+        }
+        cardEl.appendChild(fx);
+    }
+    if (fx) fx.classList.toggle('on', !!show);
 }
 
 /* ── Rotate the preview card in 3D within its pane ──

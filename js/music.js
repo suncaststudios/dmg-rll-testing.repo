@@ -26,8 +26,8 @@ const MUSIC_MANIFEST = {
     castingcasings: { main: 'castingcasings-main.opus',    combat: 'castingcasings-combat.opus' },
 };
 // "New" tracks live in sounds/songs/music/ (empty until the new set is
-// delivered); the previous set lives in sounds/songs/legacy music/ —
-// toggled via the Settings > Audio "Legacy Music" checkbox
+// delivered); the previous set lives in sounds/songs/alternate music/ —
+// toggled via the Settings > Audio "Alternate Music" checkbox
 // (dr_legacy_music), default off. Player-supplied tracks live in
 // sounds/songs/custom music/, toggled via "Custom Music" (dr_custom_music)
 // — see _musicCustomManifest() below for how those get picked up.
@@ -36,7 +36,7 @@ function _musicUseLegacy() {
     catch (e) { return false; }
 }
 function _musicDir() {
-    return _musicUseLegacy() ? 'sounds/songs/legacy music/' : 'sounds/songs/music/';
+    return _musicUseLegacy() ? 'sounds/songs/alternate music/' : 'sounds/songs/music/';
 }
 
 /* ── Custom Music ──────────────────────────────────────────────────────

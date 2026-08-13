@@ -3193,15 +3193,15 @@
 
         .die-face {
             position: absolute; width: 120px; height: 120px;
-            background: radial-gradient(ellipse at 35% 25%, #4a3010, #1a0800);
-            border: 2px solid rgba(180,130,40,0.6);
+            background: radial-gradient(ellipse at 35% 25%, var(--die-bg-a, #4a3010), var(--die-bg-b, #1a0800));
+            border: 2px solid var(--die-border, rgba(180,130,40,0.6));
             border-radius: 16px;
             display: flex; align-items: center; justify-content: center;
             font-size: 58px;
-            font-family: 'Cinzel Decorative', serif; font-weight: 900; color: #fff;
-            text-shadow: 0 0 20px rgba(255,255,200,0.6), 0 2px 4px rgba(0,0,0,0.9);
+            font-family: 'Cinzel Decorative', serif; font-weight: 900; color: var(--die-text, #fff);
+            text-shadow: 0 0 20px var(--die-text-glow, rgba(255,255,200,0.6)), 0 2px 4px rgba(0,0,0,0.9);
             box-shadow:
-                inset 0 2px 0 rgba(255,220,100,0.2),
+                inset 0 2px 0 var(--die-sheen, rgba(255,220,100,0.2)),
                 inset 0 -2px 0 rgba(0,0,0,0.5),
                 inset 4px 0 0 rgba(0,0,0,0.3),
                 0 0 30px rgba(0,0,0,0.8);
@@ -3211,14 +3211,14 @@
         .die-face::before {
             content: '';
             position: absolute; inset: 6px;
-            border: 1px solid rgba(180,130,40,0.2);
+            border: 1px solid var(--die-border-inner, rgba(180,130,40,0.2));
             border-radius: 10px;
             pointer-events: none;
         }
         .die-face::after {
             content: '';
             position: absolute; top: 8px; left: 8px; right: 8px; height: 35%;
-            background: linear-gradient(180deg, rgba(255,220,100,0.12) 0%, transparent 100%);
+            background: linear-gradient(180deg, var(--die-sheen, rgba(255,220,100,0.12)) 0%, transparent 100%);
             border-radius: 8px 8px 0 0;
             pointer-events: none;
         }
@@ -3263,7 +3263,7 @@
         #die-result-label {
             position: absolute; top: 130px; left: 50%; transform: translateX(-50%);
             font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px;
-            color: rgba(200,160,60,0.8); text-transform: uppercase;
+            color: var(--die-label-color, rgba(200,160,60,0.8)); text-transform: uppercase;
             white-space: nowrap; pointer-events: none;
             opacity: 0; transition: opacity 0.3s;
         }

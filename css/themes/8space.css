@@ -255,3 +255,15 @@ body.theme-8space #menu-decks {
     filter: hue-rotate(160deg) saturate(1.6) brightness(0.9) !important;
     image-rendering: pixelated !important;
 }
+
+/* Signature: dice recolored to arcade cyan/magenta pixel palette */
+body.theme-8space {
+    --die-bg-a: #1a0a2e;
+    --die-bg-b: #05030d;
+    --die-border: #00e5ff;
+    --die-border-inner: rgba(255,0,204,0.3);
+    --die-sheen: rgba(0,229,255,0.18);
+    --die-text: #fff;
+    --die-text-glow: rgba(0,229,255,0.7);
+    --die-label-color: #ff00cc;
+}

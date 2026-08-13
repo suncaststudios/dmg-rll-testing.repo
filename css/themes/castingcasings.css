@@ -272,3 +272,15 @@ body.theme-castingcasings #menu-leaderboard,
 body.theme-castingcasings #menu-decks {
     filter: hue-rotate(-40deg) saturate(1.6) brightness(0.6) sepia(0.15) !important;
 }
+
+/* Signature: dice recolored to brass-casing gold / gunmetal steel */
+body.theme-castingcasings {
+    --die-bg-a: #3a2a12;
+    --die-bg-b: #14100a;
+    --die-border: rgba(210,160,60,0.7);
+    --die-border-inner: rgba(140,150,160,0.3);
+    --die-sheen: rgba(255,140,40,0.18);
+    --die-text: #ffe6c0;
+    --die-text-glow: rgba(255,140,40,0.6);
+    --die-label-color: rgba(210,160,60,0.85);
+}

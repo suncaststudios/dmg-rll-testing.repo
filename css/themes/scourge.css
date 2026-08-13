@@ -309,3 +309,15 @@ body.theme-scourge #menu-leaderboard,
 body.theme-scourge #menu-decks {
     filter: hue-rotate(70deg) saturate(1.6) brightness(0.75) !important;
 }
+
+/* Signature: dice recolored to sickly necromancer green */
+body.theme-scourge {
+    --die-bg-a: #14301c;
+    --die-bg-b: #030a05;
+    --die-border: rgba(111,224,90,0.65);
+    --die-border-inner: rgba(111,224,90,0.22);
+    --die-sheen: rgba(150,255,120,0.15);
+    --die-text: #d9ffdc;
+    --die-text-glow: rgba(111,224,90,0.6);
+    --die-label-color: rgba(111,224,90,0.85);
+}

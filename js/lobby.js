@@ -140,24 +140,47 @@ async function joinRoomByCode() {
     _lobbyStatus(statusEl, 'Looking up room…', 'wait');
 
     try {
-        const { data: room, error } = await sb
-            .from('lobby_rooms').select('*').eq('code', code).maybeSingle();
-        if (error || !room) { _lobbyStatus(statusEl, 'Room not found.', 'err'); return; }
+        // Optimistic compare-and-swap loop: if two players join at the same
+        // moment, both read the same `players` array before either writes.
+        // Without a guard, whichever write lands second silently overwrites
+        // the first joiner right out of the room. We guard the write with
+        // .eq('players', <the exact JSON we read>) so it only succeeds if
+        // nobody else changed the row in between; if 0 rows come back we
+        // know we lost the race and retry against the fresh row.
+        let room = null, newPlayers = null, myPlayer = null;
+        const MAX_ATTEMPTS = 5;
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            const { data: freshRoom, error } = await sb
+                .from('lobby_rooms').select('*').eq('code', code).maybeSingle();
+            if (error || !freshRoom) { _lobbyStatus(statusEl, 'Room not found.', 'err'); return; }
+            room = freshRoom;
 
-        const players = typeof room.players === 'string'
-            ? JSON.parse(room.players) : (room.players || []);
+            const playersRaw = typeof room.players === 'string' ? room.players : JSON.stringify(room.players || []);
+            const players = typeof room.players === 'string'
+                ? JSON.parse(room.players) : (room.players || []);
 
-        if (players.find(p => p.uid === _getOnlineUid())) {
-            _lobbyStatus(statusEl, 'You are already in this room.', 'err'); return;
+            if (players.find(p => p.uid === _getOnlineUid())) {
+                _lobbyStatus(statusEl, 'You are already in this room.', 'err'); return;
+            }
+
+            const isSpectator = players.length >= room.max_players;
+            myPlayer   = _lobbyMakeSelf(isSpectator ? 'spectating' : 'waiting');
+            newPlayers = [...players, myPlayer];
+
+            const { data: updated, error: updateErr } = await sb.from('lobby_rooms')
+                .update({ players: JSON.stringify(newPlayers) })
+                .eq('code', code)
+                .eq('players', playersRaw)   // CAS guard
+                .select();
+            if (updateErr) { _lobbyStatus(statusEl, updateErr.message, 'err'); return; }
+
+            if (updated && updated.length > 0) break; // won the race
+            if (attempt === MAX_ATTEMPTS - 1) {
+                _lobbyStatus(statusEl, 'Room is busy, please try again.', 'err');
+                return;
+            }
+            await new Promise(r => setTimeout(r, 120 + Math.random() * 150)); // jittered backoff, then retry
         }
-
-        const isSpectator = players.length >= room.max_players;
-        const myPlayer    = _lobbyMakeSelf(isSpectator ? 'spectating' : 'waiting');
-        const newPlayers  = [...players, myPlayer];
-
-        const { error: updateErr } = await sb.from('lobby_rooms')
-            .update({ players: JSON.stringify(newPlayers) }).eq('code', code);
-        if (updateErr) { _lobbyStatus(statusEl, updateErr.message, 'err'); return; }
 
         _lobby.code       = code;
         _lobby.name       = room.name;
@@ -447,6 +470,35 @@ function _lobbyToggleReady() {
     _lobbyCheckStart();
 }
 
+// Compare-and-swap write of the `players` column, shared by every write
+// site that mutates the roster (join uses its own inline version above
+// since it also needs the room's name/max_players/host_uid back out).
+// `mutateFn(freshPlayers)` gets the latest players array read straight from
+// the DB and returns the array to persist. Retries with jittered backoff
+// if another client's write landed in between, so a host's periodic
+// heartbeat or a kick can't silently stomp a join that happened moments
+// earlier. Returns the persisted array, or null if it never confirmed.
+async function _lobbyWritePlayersCAS(code, mutateFn, maxAttempts = 5, extraFields = null) {
+    const sb = window._supabase;
+    if (!sb || !code) return null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const { data: room, error } = await sb.from('lobby_rooms')
+            .select('players').eq('code', code).maybeSingle();
+        if (error || !room) return null;
+        const playersRaw = typeof room.players === 'string' ? room.players : JSON.stringify(room.players || []);
+        const freshPlayers = typeof room.players === 'string' ? JSON.parse(room.players) : (room.players || []);
+        const newPlayers = mutateFn(freshPlayers);
+        const payload = { players: JSON.stringify(newPlayers), ...(extraFields || {}) };
+        const { data: updated, error: updateErr } = await sb.from('lobby_rooms')
+            .update(payload)
+            .eq('code', code).eq('players', playersRaw).select();
+        if (updateErr) return null;
+        if (updated && updated.length > 0) return newPlayers;
+        await new Promise(r => setTimeout(r, 120 + Math.random() * 150));
+    }
+    return null;
+}
+
 // No more _lobbyUpdateMyPlayerInDB — replaced by broadcast above.
 // Host does ONE periodic DB sync every 30s as a heartbeat so late joiners
 // can read the current state.
@@ -457,9 +509,10 @@ function _lobbyScheduleHeartbeat() {
         const sb = window._supabase;
         if (!sb || !_lobby.code || !_lobby.isHost) { clearInterval(window._lobbyHeartbeatTimer); return; }
         try {
-            await sb.from('lobby_rooms')
-                .update({ players: JSON.stringify(_lobby.players) })
-                .eq('code', _lobby.code);
+            // Publish the host's current player list, but via CAS so a
+            // join that committed to the DB a moment ago (and hasn't
+            // reached us as a broadcast yet) doesn't get overwritten.
+            await _lobbyWritePlayersCAS(_lobby.code, () => _lobby.players);
         } catch(e) {}
     }, 30000);
 }
@@ -709,12 +762,10 @@ async function _lobbyExecuteKick(uid) {
         type: 'broadcast', event: 'player_leave',
         payload: { uid, name: '', wasHost: false, kicked: true }
     });
-    // Host writes updated player list (1 write, unavoidable for persistence)
+    // Host writes updated player list via CAS (1 write, unavoidable for
+    // persistence) so a concurrent join can't get wiped by this kick.
     if (_lobby.isHost) {
-        const sb = window._supabase;
-        sb?.from('lobby_rooms')
-          .update({ players: JSON.stringify(_lobby.players) })
-          .eq('code', _lobby.code).then(() => {});
+        _lobbyWritePlayersCAS(_lobby.code, fresh => fresh.filter(p => p.uid !== uid));
     }
 }
 
@@ -922,21 +973,42 @@ async function _lobbyLeave(kicked = false) {
     if (_lobby.channel)    { _lobby.channel.unsubscribe(); _lobby.channel = null; }
     if (_lobby.dbListener) { _lobby.dbListener(); _lobby.dbListener = null; }
 
-    // DB work: use local state (no read needed)
+    // DB work: use local state as a first guess, but where it matters
+    // (deleting the room, handing off host) confirm against a fresh DB
+    // read first so a player who joins in the same instant someone else
+    // is leaving doesn't get silently deleted or dropped from the roster.
     if (sb && _lobby.code) {
         try {
-            const remainingPlayers = _lobby.players.filter(p => p.uid !== myUid);
-            if (remainingPlayers.length === 0) {
-                // Last person — delete the room (1 write)
-                await sb.from('lobby_rooms').delete().eq('code', _lobby.code);
-            } else if (wasHost) {
-                // Pass host + update players in one write
-                await sb.from('lobby_rooms').update({
-                    host_uid: remainingPlayers[0].uid,
-                    players:  JSON.stringify(remainingPlayers),
-                }).eq('code', _lobby.code);
+            const localRemaining = _lobby.players.filter(p => p.uid !== myUid);
+
+            if (wasHost) {
+                // Host leaving always needs a fresh read regardless of the
+                // local guess, since it decides both room deletion and
+                // who the next host is.
+                await _lobbyWritePlayersCAS(_lobby.code, fresh => fresh.filter(p => p.uid !== myUid));
+                const { data: latest } = await sb.from('lobby_rooms').select('players').eq('code', _lobby.code).maybeSingle();
+                const latestPlayers = latest ? (typeof latest.players === 'string' ? JSON.parse(latest.players) : (latest.players || [])) : [];
+                if (latestPlayers.length > 0) {
+                    await sb.from('lobby_rooms').update({ host_uid: latestPlayers[0].uid }).eq('code', _lobby.code);
+                } else {
+                    await sb.from('lobby_rooms').delete().eq('code', _lobby.code);
+                }
+            } else if (localRemaining.length === 0) {
+                // We believe we were the last one — confirm with a fresh
+                // read before deleting, in case someone joined just now.
+                const { data: latest } = await sb.from('lobby_rooms').select('players').eq('code', _lobby.code).maybeSingle();
+                const latestPlayers = latest ? (typeof latest.players === 'string' ? JSON.parse(latest.players) : (latest.players || [])) : [];
+                const stillThere = latestPlayers.filter(p => p.uid !== myUid);
+                if (stillThere.length === 0) {
+                    await sb.from('lobby_rooms').delete().eq('code', _lobby.code);
+                } else {
+                    // Someone joined between our local check and now —
+                    // just remove ourselves instead of deleting the room.
+                    await _lobbyWritePlayersCAS(_lobby.code, fresh => fresh.filter(p => p.uid !== myUid));
+                }
             }
-            // If not host and not last: no DB write needed — others got the broadcast
+            // Not host and others remain locally: no DB write needed —
+            // they already have our departure via the broadcast above.
         } catch(e) { console.warn('[DR Lobby] leave error', e); }
     }
 

@@ -271,3 +271,15 @@ body.theme-angelic #menu-leaderboard,
 body.theme-angelic #menu-decks {
     filter: invert(1) hue-rotate(180deg) saturate(0.25) brightness(1.3) contrast(0.9) !important;
 }
+
+/* Signature: dice recolored to white/soft-gold to match the angelic palette */
+body.theme-angelic {
+    --die-bg-a: #ffffff;
+    --die-bg-b: #f0e6c8;
+    --die-border: rgba(201,162,39,0.75);
+    --die-border-inner: rgba(201,162,39,0.3);
+    --die-sheen: rgba(255,255,255,0.8);
+    --die-text: #202122;
+    --die-text-glow: rgba(201,162,39,0.5);
+    --die-label-color: rgba(84,89,93,0.9);
+}

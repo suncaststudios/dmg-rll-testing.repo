@@ -304,3 +304,15 @@ body.theme-aero #menu-leaderboard,
 body.theme-aero #menu-decks {
     filter: invert(1) hue-rotate(190deg) saturate(0.8) brightness(1.15) !important;
 }
+
+/* Signature: dice recolored to the glassy sky-blue/aqua Aero palette */
+body.theme-aero {
+    --die-bg-a: #eaf9ff;
+    --die-bg-b: #7ec8e3;
+    --die-border: rgba(255,255,255,0.85);
+    --die-border-inner: rgba(255,255,255,0.4);
+    --die-sheen: rgba(255,255,255,0.55);
+    --die-text: #0a4a6b;
+    --die-text-glow: rgba(255,255,255,0.9);
+    --die-label-color: rgba(20,90,120,0.85);
+}

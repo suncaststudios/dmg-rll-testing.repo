@@ -263,3 +263,15 @@ body.theme-cyberpunk #menu-leaderboard,
 body.theme-cyberpunk #menu-decks {
     filter: hue-rotate(285deg) saturate(1.8) brightness(0.85) !important;
 }
+
+/* Signature: dice recolored to hot-magenta/electric-cyan neon */
+body.theme-cyberpunk {
+    --die-bg-a: #2a0040;
+    --die-bg-b: #05000e;
+    --die-border: rgba(255,0,180,0.75);
+    --die-border-inner: rgba(0,215,255,0.25);
+    --die-sheen: rgba(0,215,255,0.2);
+    --die-text: #fff0fb;
+    --die-text-glow: rgba(255,0,180,0.7);
+    --die-label-color: rgba(0,215,255,0.85);
+}

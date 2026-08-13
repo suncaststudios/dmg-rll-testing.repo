@@ -255,3 +255,15 @@ body.theme-space #menu-leaderboard,
 body.theme-space #menu-decks {
     filter: hue-rotate(210deg) saturate(0.7) brightness(0.9) !important;
 }
+
+/* Signature: the 3D dice now match the cosmos palette instead of staying parchment-brown */
+body.theme-space {
+    --die-bg-a: #16225c;
+    --die-bg-b: #04081e;
+    --die-border: rgba(90,130,255,0.65);
+    --die-border-inner: rgba(90,130,255,0.22);
+    --die-sheen: rgba(160,190,255,0.18);
+    --die-text: #eaf1ff;
+    --die-text-glow: rgba(150,190,255,0.65);
+    --die-label-color: rgba(150,190,255,0.85);
+}

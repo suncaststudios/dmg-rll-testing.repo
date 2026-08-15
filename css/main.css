@@ -3033,7 +3033,15 @@
             border-radius: 9px;
             box-shadow: 0 6px 22px rgba(0,0,0,.6);
             overflow: hidden;
-            z-index: 50;
+            /* Needs to sit ABOVE #menu-main's stacking context (.screen
+               base z-index 2000), not just above its own siblings' small
+               z-index numbers. #menu-main sets its own background to
+               none so the ad box shows through it visually just fine,
+               but #menu-right-panel (and its children) still cover that
+               same region with default pointer-events — invisibly
+               swallowing every click before it could ever reach a lower
+               z-index element like this one used to be. */
+            z-index: 2050;
             cursor: pointer;
             transition: border-color .2s, transform .15s;
         }
@@ -3183,12 +3191,32 @@
             100% { transform: translateY(100%); }
         }
         .customize-hat {
-            position: absolute; top: -26px; left: 50%; transform: translateX(-50%);
-            font-size: 34px; pointer-events: none;
+            position: absolute; top: -46px; left: 50%; transform: translateX(-50%);
+            font-size: 60px; pointer-events: none;
             filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
             opacity: 0; transition: opacity 0.2s, transform 0.2s;
         }
         .customize-hat.on { opacity: 1; }
+
+        /* ── Generic cosmetics for cards OUTSIDE the Customize screen
+           (main-menu showcase card, in-combat hand cards). Separate from
+           .customize-hat/.customize-aura above (which are singleton IDs
+           for the one preview card) since these get created/destroyed
+           per-card on demand by _applyCardCosmetics() in customize.js. ── */
+        .cosmetic-hat {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            pointer-events: none; z-index: 6;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+        .cosmetic-hat.hat-lg { font-size: 56px; top: -42px; }
+        .cosmetic-hat.hat-md { font-size: 46px; top: -34px; }
+        .cosmetic-hat.hat-sm { font-size: 34px; top: -26px; }
+        /* Aura, applied as a drop-shadow filter rather than an extra
+           layered element — filter wraps the whole rendered card
+           (including its own opaque background/box-shadow) in a colored
+           glow, so it isn't clipped the way a lower z-index child would
+           be behind the card's opaque background. */
+        .card.has-cosmetic-aura { filter: var(--cosmetic-aura-glow, none); }
         .customize-preview-caption {
             margin-top: 18px;
             font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 2px;

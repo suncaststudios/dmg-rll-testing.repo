@@ -322,6 +322,7 @@ function render() {
             <div class="c-name">${c.n}</div>
             <div class="c-icon">${c.i}</div>
             <div class="c-desc">${c.d}</div>`;
+        if (typeof _applyCardCosmetics === 'function') _applyCardCosmetics(el, 'hat-sm');
         el.onclick = () => { if (state.turn) playerAct(i); };
         el.addEventListener('mouseenter', () => { el.classList.add('hovered'); playSfx('cardHover'); });
         el.addEventListener('mousemove', e => {

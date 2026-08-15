@@ -69,6 +69,72 @@ function _saveEquippedCosmetics() {
     }
 }
 
+/* ── Apply the equipped cosmetics to any real card element outside the
+   Customize screen (main-menu showcase card, in-combat hand cards).
+   Creates/removes the hat and aura effects on demand rather than
+   requiring pre-existing markup, since hand cards are built fresh by
+   render() every turn. hatSizeClass picks the hat's size for whatever
+   context it's in ('hat-lg' | 'hat-md' | 'hat-sm', see CSS). ── */
+function _applyCardCosmetics(cardEl, hatSizeClass) {
+    if (!cardEl) return;
+
+    const loggedIn = typeof _isLoggedIn === 'function' ? _isLoggedIn() : true;
+    const combo = (loggedIn && typeof _equippedCosmetics !== 'undefined')
+        ? _equippedCosmetics
+        : { hat: null, aura: null, card: null, font: null };
+
+    // Card skin
+    cardEl.style.background = (combo.card && typeof CUSTOMIZE_CARD_SKINS !== 'undefined' && CUSTOMIZE_CARD_SKINS[combo.card])
+        ? CUSTOMIZE_CARD_SKINS[combo.card] : '';
+
+    // Font
+    const fontFamily = (combo.font && typeof CUSTOMIZE_FONTS !== 'undefined' && CUSTOMIZE_FONTS[combo.font])
+        ? CUSTOMIZE_FONTS[combo.font] : '';
+    const nameEl = cardEl.querySelector('.c-name');
+    const descEl = cardEl.querySelector('.c-desc');
+    if (nameEl) nameEl.style.fontFamily = fontFamily;
+    if (descEl) descEl.style.fontFamily = fontFamily;
+
+    // Hat
+    let hatEl = cardEl.querySelector('.cosmetic-hat');
+    if (combo.hat) {
+        const hatItem = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : []).find(i => i.id === combo.hat);
+        if (!hatEl) {
+            hatEl = document.createElement('div');
+            hatEl.className = 'cosmetic-hat ' + (hatSizeClass || 'hat-md');
+            cardEl.appendChild(hatEl);
+        }
+        hatEl.textContent = hatItem ? hatItem.icon : '';
+    } else if (hatEl) {
+        hatEl.remove();
+    }
+
+    // Aura (see .card.has-cosmetic-aura in CSS for why this is a filter,
+    // not a layered child element)
+    if (combo.aura && typeof CUSTOMIZE_AURA_RGB !== 'undefined' && CUSTOMIZE_AURA_RGB[combo.aura]) {
+        const rgb = CUSTOMIZE_AURA_RGB[combo.aura];
+        cardEl.style.setProperty('--cosmetic-aura-glow', `drop-shadow(0 0 20px rgba(${rgb},0.65))`);
+        cardEl.classList.add('has-cosmetic-aura');
+    } else {
+        cardEl.style.removeProperty('--cosmetic-aura-glow');
+        cardEl.classList.remove('has-cosmetic-aura');
+    }
+
+    if (typeof _customizeUpdateCod3breakerFx === 'function') {
+        _customizeUpdateCod3breakerFx(cardEl, combo.aura === 'aura_cod3breaker');
+    }
+}
+
+/* Refreshes the main-menu showcase card (#menu-float-card) with whatever
+   is currently equipped. Called on load and whenever equip state or
+   login state changes. */
+function _refreshMenuCardCosmetics() {
+    const el = document.querySelector('#menu-float-card .card');
+    if (el) _applyCardCosmetics(el, 'hat-lg');
+}
+
+document.addEventListener('DOMContentLoaded', _refreshMenuCardCosmetics);
+
 function openCustomize() {
     playSfx('menuClick');
     _loadEquippedCosmetics();
@@ -134,6 +200,7 @@ function _customizeEquip(itemId) {
     _saveEquippedCosmetics();
     _customizeSwitchTab(_customizeActiveTab);
     _customizeRenderPreview(null);
+    _refreshMenuCardCosmetics();
 }
 
 /* hoverItemId: if set, previews that one item in its class while the

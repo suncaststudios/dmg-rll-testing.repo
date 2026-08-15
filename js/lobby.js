@@ -103,7 +103,17 @@ async function _lobbyCreate() {
             name,
             max_players: _lobby.createSize,
             host_uid:    _getOnlineUid(),
-            players:     JSON.stringify([myPlayer]),
+            // `players` is a jsonb column — pass the native array/object
+            // and let supabase-js handle serialization. Pre-stringifying
+            // it here (JSON.stringify(...)) double-encodes the value: the
+            // client library JSON-serializes the whole request body on
+            // top of that, so the column ends up storing a jsonb *string*
+            // containing escaped JSON text instead of a real jsonb array.
+            // That's harmless for a plain read, but breaks every
+            // compare-and-swap write later (see _lobbyWritePlayersCAS and
+            // joinRoomByCode below), which is what was actually causing
+            // "Room is busy" on effectively every join attempt.
+            players:     [myPlayer],
         });
         if (error) { _lobbyStatus(statusEl, error.message, 'err'); return; }
 
@@ -144,9 +154,20 @@ async function joinRoomByCode() {
         // moment, both read the same `players` array before either writes.
         // Without a guard, whichever write lands second silently overwrites
         // the first joiner right out of the room. We guard the write with
-        // .eq('players', <the exact JSON we read>) so it only succeeds if
+        // .eq('players', <the exact array we read>) so it only succeeds if
         // nobody else changed the row in between; if 0 rows come back we
         // know we lost the race and retry against the fresh row.
+        //
+        // players is passed as a native array (not JSON.stringify'd) both
+        // here and in the .eq() guard below — supabase-js serializes
+        // objects/arrays correctly for jsonb columns on its own. Manually
+        // stringifying first double-encodes it (the request body itself
+        // gets JSON-serialized on top), which silently turns the stored
+        // value into a jsonb *string* instead of a jsonb array. That
+        // mismatch meant `.eq('players', playersRaw)` could never match
+        // the freshly-read row, so every join fell through every retry
+        // and always ended in "Room is busy" — even against a completely
+        // empty, uncontested room.
         let room = null, newPlayers = null, myPlayer = null;
         const MAX_ATTEMPTS = 5;
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -155,7 +176,6 @@ async function joinRoomByCode() {
             if (error || !freshRoom) { _lobbyStatus(statusEl, 'Room not found.', 'err'); return; }
             room = freshRoom;
 
-            const playersRaw = typeof room.players === 'string' ? room.players : JSON.stringify(room.players || []);
             const players = typeof room.players === 'string'
                 ? JSON.parse(room.players) : (room.players || []);
 
@@ -168,9 +188,9 @@ async function joinRoomByCode() {
             newPlayers = [...players, myPlayer];
 
             const { data: updated, error: updateErr } = await sb.from('lobby_rooms')
-                .update({ players: JSON.stringify(newPlayers) })
+                .update({ players: newPlayers })
                 .eq('code', code)
-                .eq('players', playersRaw)   // CAS guard
+                .eq('players', players)   // CAS guard
                 .select();
             if (updateErr) { _lobbyStatus(statusEl, updateErr.message, 'err'); return; }
 
@@ -485,13 +505,15 @@ async function _lobbyWritePlayersCAS(code, mutateFn, maxAttempts = 5, extraField
         const { data: room, error } = await sb.from('lobby_rooms')
             .select('players').eq('code', code).maybeSingle();
         if (error || !room) return null;
-        const playersRaw = typeof room.players === 'string' ? room.players : JSON.stringify(room.players || []);
         const freshPlayers = typeof room.players === 'string' ? JSON.parse(room.players) : (room.players || []);
         const newPlayers = mutateFn(freshPlayers);
-        const payload = { players: JSON.stringify(newPlayers), ...(extraFields || {}) };
+        // Native array, not JSON.stringify(newPlayers) — see the comment
+        // in joinRoomByCode above for why pre-stringifying a jsonb column
+        // breaks the .eq() CAS guard below.
+        const payload = { players: newPlayers, ...(extraFields || {}) };
         const { data: updated, error: updateErr } = await sb.from('lobby_rooms')
             .update(payload)
-            .eq('code', code).eq('players', playersRaw).select();
+            .eq('code', code).eq('players', freshPlayers).select();
         if (updateErr) return null;
         if (updated && updated.length > 0) return newPlayers;
         await new Promise(r => setTimeout(r, 120 + Math.random() * 150));

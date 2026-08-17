@@ -197,6 +197,43 @@
     </div><!-- end auth-card -->
     </div><!-- end auth-wall -->
 
+    <!-- ═══════════════════ IMAGE CROP MODAL (avatar / banner) ═══════════════════
+         Lives as a true top-level sibling of #auth-wall (and #game-container),
+         NOT nested inside #game-container. #game-container uses
+         transform:scale() for UI Scale, and any transformed ancestor becomes
+         the containing block for position:fixed descendants — so a fixed
+         element nested inside it can never out-rank a real top-level sibling
+         like #auth-wall no matter how high its own z-index is set. That's
+         exactly why this used to render behind the login screen (or only
+         become visible once auth-wall closed): its z-index:999999 was being
+         evaluated inside #game-container's own (much lower) stacking
+         context, not the real document root. Moving it out here is the
+         actual fix — bumping the z-index further wouldn't have helped. ── -->
+    <div id="img-crop-modal" class="img-crop-modal">
+        <div class="img-crop-box">
+            <div class="img-crop-title" id="img-crop-title">Adjust Image</div>
+            <div id="img-crop-viewport" class="img-crop-viewport">
+                <canvas id="img-crop-canvas"></canvas>
+                <div id="img-crop-mask" class="img-crop-mask"></div>
+            </div>
+            <div class="img-crop-row">
+                <span class="img-crop-row-label">ZOOM</span>
+                <input type="range" id="img-crop-zoom" min="100" max="300" value="100" oninput="_cropOnZoom(this.value)">
+            </div>
+            <div class="img-crop-row">
+                <span class="img-crop-row-label">ROTATE</span>
+                <input type="range" id="img-crop-rotate" min="-180" max="180" value="0" oninput="_cropOnRotate(this.value)">
+                <button class="img-crop-reset-btn" title="Reset rotation" onclick="_cropResetRotate()">↺</button>
+            </div>
+            <div class="img-crop-actions">
+                <button class="img-crop-btn secondary" onclick="closeCropModal()">Cancel</button>
+                <button class="img-crop-btn primary" onclick="_cropSave()">✦ Apply</button>
+            </div>
+        </div>
+    </div>
+    <!-- ═══════════════════ END IMAGE CROP MODAL ═══════════════════ -->
+
+
     <!-- ═══════════════════════════════════════════════════════════════
          PREFERENCES SIDEBAR (inside menu-profile)
     ═══════════════════════════════════════════════════════════════════ -->
@@ -893,30 +930,6 @@
     </div>
     <!-- ═══════════════════ END PROFILE EDIT MODAL ═══════════════════ -->
 
-    <!-- ═══════════════════ IMAGE CROP MODAL (avatar / banner) ═══════════════════ -->
-    <div id="img-crop-modal" class="img-crop-modal">
-        <div class="img-crop-box">
-            <div class="img-crop-title" id="img-crop-title">Adjust Image</div>
-            <div id="img-crop-viewport" class="img-crop-viewport">
-                <canvas id="img-crop-canvas"></canvas>
-                <div id="img-crop-mask" class="img-crop-mask"></div>
-            </div>
-            <div class="img-crop-row">
-                <span class="img-crop-row-label">ZOOM</span>
-                <input type="range" id="img-crop-zoom" min="100" max="300" value="100" oninput="_cropOnZoom(this.value)">
-            </div>
-            <div class="img-crop-row">
-                <span class="img-crop-row-label">ROTATE</span>
-                <input type="range" id="img-crop-rotate" min="-180" max="180" value="0" oninput="_cropOnRotate(this.value)">
-                <button class="img-crop-reset-btn" title="Reset rotation" onclick="_cropResetRotate()">↺</button>
-            </div>
-            <div class="img-crop-actions">
-                <button class="img-crop-btn secondary" onclick="closeCropModal()">Cancel</button>
-                <button class="img-crop-btn primary" onclick="_cropSave()">✦ Apply</button>
-            </div>
-        </div>
-    </div>
-    <!-- ═══════════════════ END IMAGE CROP MODAL ═══════════════════ -->
 
     <div id="menu-achievements" class="screen" style="display:none;">
         <div class="ach-header">

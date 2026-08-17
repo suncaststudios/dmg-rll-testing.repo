@@ -299,7 +299,7 @@ function _applyModTheme(mod) {
             const bg = mod.theme['--accent'] || mod.theme['--gold'] || '#c8a460';
             btn.style.background = `linear-gradient(135deg, ${bg} 0%, #0d0400 100%)`;
             btn.innerHTML = `<span class="theme-swatch-label">${mod.name}</span>`;
-            btn.addEventListener('click', function() { playSfx('menuClick'); selectTheme(mod.name); });
+            btn.addEventListener('click', function() { playSfx('menuClick'); applyTheme(mod.name); });
             picker.appendChild(btn);
         }
     }

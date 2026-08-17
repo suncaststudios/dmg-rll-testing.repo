@@ -403,7 +403,17 @@ async function _fetchProfileByUid(uid, silent = false) {
     if (!sb || !uid) return;
     try {
         const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
-        if (error || !data) return;
+        if (error) {
+            // Don't silently eat this — a failed fetch here means the UI
+            // falls back to whatever local/preset data _profileData already
+            // has, which looks exactly like "my saved profile never loaded"
+            // with zero indication of why. (This is exactly what happened
+            // when profiles.id was still typed uuid — every fetch 400'd here
+            // and the profile view just quietly kept showing defaults.)
+            console.error('[Profile] fetch failed for uid', uid, ':', error);
+            return;
+        }
+        if (!data) return;
         // Merge DB data into local _profileData
         _profileData.username    = data.username    || _profileData.username;
         _profileData.displayName = data.display_name ?? _profileData.displayName;

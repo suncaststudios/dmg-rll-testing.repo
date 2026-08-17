@@ -177,6 +177,17 @@ function rematch() {
     closeForfeitPopup(); 
     toggle('screen-end', false);
 
+    // If the previous match ended via forfeit, confirmForfeit() explicitly
+    // hides #board (display:none) before showing the end screen. Nothing
+    // else ever sets it back — initGame() is the only other place that
+    // does, and rematch() bypasses it entirely. Without this, everything
+    // below runs correctly (a fresh hand really does get dealt into
+    // state.pHand and painted into the DOM by render()) but the whole
+    // board stays invisible, which looks exactly like "no cards were
+    // dealt" from the player's side.
+    const boardEl = document.getElementById('board');
+    if (boardEl) boardEl.style.display = 'block';
+
     stopBgAudio();
     setTimeout(() => { try { startBgAudio(); } catch(e) {} }, 350);
 
@@ -625,6 +636,29 @@ async function playerAct(i) {
     if (_onlineMode) { state.turn = false; render(); } // wait for opponent broadcast
     showSkipBtn(false);
     _skipRequested = false;
+}
+
+/* ── stackPoison / stackBurn ──────────────────────────────────────────
+   Shared helpers for cards that apply poison or burn (Plague, Bramble,
+   Miasma, Contagion, Pandemic, and their self-inflict fail variants).
+   "Stacking" here means: extend the remaining duration (so reapplying
+   the same DOT keeps it going rather than just resetting the clock),
+   and take the stronger of the current/new per-turn damage (so a big
+   hit like Pandemic doesn't get diluted if something weaker lands on
+   top of it later). Matches the single duration+damage pair per status
+   that the turn-tick logic in aiAct()/playerAct() already reads from
+   state.{p,a}{Poison,Burn}[Dmg]. */
+function stackPoison(side, turns, dmgPerTurn) {
+    const durKey = side === 'p' ? 'pPoison' : 'aPoison';
+    const dmgKey = side === 'p' ? 'pPoisonDmg' : 'aPoisonDmg';
+    state[dmgKey] = Math.max(state[dmgKey] || 0, dmgPerTurn);
+    state[durKey] = (state[durKey] || 0) + turns;
+}
+function stackBurn(side, turns, dmgPerTurn) {
+    const durKey = side === 'p' ? 'pBurn' : 'aBurn';
+    const dmgKey = side === 'p' ? 'pBurnDmg' : 'aBurnDmg';
+    state[dmgKey] = Math.max(state[dmgKey] || 0, dmgPerTurn);
+    state[durKey] = (state[durKey] || 0) + turns;
 }
 
 async function aiAct() {

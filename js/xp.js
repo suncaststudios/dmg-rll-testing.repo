@@ -152,38 +152,40 @@ let _speedrunSyncTimer = null;
 function _speedrunSyncToSupabase() {
     clearTimeout(_speedrunSyncTimer);
     _speedrunSyncTimer = setTimeout(async () => {
-        // profiles = identity data, always home region (see supabase.js)
-        const sb  = window._supabaseHome;
-        const uid = typeof _getOnlineUid === 'function' ? _getOnlineUid() : null;
-        if (!sb || !uid) return;
+        // profiles = Firestore now, not Supabase (see js/firestore-db.js).
+        // Also fixed: this previously read _getOnlineUid() (the per-session
+        // matchmaking id, not a stable identity) instead of the actual
+        // account uid — meaning this write likely never reliably landed on
+        // the logged-in user's own profile at all.
+        const uid = window._syncedUid;
+        if (!uid) return;
         try {
-            await sb.from('profiles').update({
+            await fsSet('profiles', uid, {
                 best_time:           _profileData.bestTime || null,
                 challenges_completed:_profileData.challengesCompleted || 0,
-            }).eq('id', uid);
+            });
         } catch (e) {}
     }, 1200);
 }
 
-/* ─── Sync to Supabase (debounced, fire-and-forget) ─────────────── */
+/* ─── Sync to Firebase (debounced, fire-and-forget) ─────────────── */
 let _xpSyncTimer = null;
 function _xpSyncToSupabase() {
     clearTimeout(_xpSyncTimer);
     _xpSyncTimer = setTimeout(async () => {
-        // profiles = identity data, always home region (see supabase.js)
-        const sb  = window._supabaseHome;
+        // profiles = Firestore now, not Supabase (see js/firestore-db.js).
         const uid = window._syncedUid;
-        if (!sb || !uid) return;
+        if (!uid) return;
         try {
-            await sb.from('profiles').update({
+            await fsSet('profiles', uid, {
                 xp:    _profileData.xp    || 0,
                 level: _profileData.level || 1,
-            }).eq('id', uid);
+            });
         } catch(e) { console.warn('[DR XP] sync error', e); }
     }, 2000);
 }
 
-/* ─── Load XP from Supabase (merged into _fetchProfileByUid) ───── */
+/* ─── Load XP from Firebase (merged into _fetchProfileByUid) ───── */
 // Called from auth.js _fetchProfileByUid — just reads data.xp / data.level
 // The hook is in auth.js; this function is a no-op but documents the contract.
 function _xpLoadFromProfile(data) {

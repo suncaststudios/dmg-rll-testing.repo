@@ -300,14 +300,19 @@ async function _wtClaimChampionReward(weekKey) {
     _showGoldToast?.('🏆 +200 🪙 Tournament Champion!');
     if (typeof playSfx === 'function') playSfx('tournamentWin');
 
-    // profiles = identity data, always home region (see supabase.js) —
+    // profiles = Firestore now, not Supabase (see js/firestore-db.js) —
     // your tournament win count shouldn't depend on which region you
     // were playing in when you won.
-    const sb  = window._supabaseHome;
-    const uid = _getOnlineUid();
-    if (!sb || !uid) return;
+    //
+    // Also fixed: this previously read _getOnlineUid() (the per-session
+    // matchmaking id, regenerated fresh every session — see the note in
+    // js/online.js about _syncedCode never actually being set) instead of
+    // window._syncedUid, the real stable account id. That meant tournament
+    // win counts were never actually being tied to an account at all.
+    const uid = window._syncedUid;
+    if (!uid) return;
     try {
-        const { data: p } = await sb.from('profiles').select('tournaments_won').eq('id', uid).maybeSingle();
-        await sb.from('profiles').update({ tournaments_won: (p?.tournaments_won || 0) + 1 }).eq('id', uid);
+        const p = await fsGet('profiles', uid);
+        await fsSet('profiles', uid, { tournaments_won: (p?.tournaments_won || 0) + 1 });
     } catch (e) {}
 }

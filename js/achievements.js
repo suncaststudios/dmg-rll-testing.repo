@@ -678,18 +678,17 @@ function applyColorblind() {
 }
 
 
-/* ── _pushStatsCloud — syncs achievement stats to Supabase (fire-and-forget) ── */
+/* ── _pushStatsCloud — syncs achievement stats to Firebase (fire-and-forget) ── */
 function _pushStatsCloud() {
-    const sb  = window._supabaseHome; // profiles = identity data, always home region
-    if (!sb || !_syncedUid) return;
+    if (!_syncedUid) return; // profiles = Firestore now, not Supabase (see js/firestore-db.js)
     // Collect current stats from localStorage
     const statsRaw = localStorage.getItem('dr_stats');
     const stats = statsRaw ? JSON.parse(statsRaw) : {};
-    sb.from('profiles').update({
+    fsSet('profiles', _syncedUid, {
         wins:            stats.wins            || 0,
         losses:          stats.losses          || 0,
         tournaments_won: stats.tournamentsWon  || 0,
-    }).eq('id', _syncedUid).then(() => {});
+    });
 }
 
 // (removed _initSync — was an empty, uncalled stub; real cloud sync

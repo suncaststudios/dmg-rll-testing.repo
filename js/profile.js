@@ -265,11 +265,15 @@ function saveProfile() {
     _renderProfileView();
     _updateCornerBtn();
     if (typeof updateClubTitle === 'function') updateClubTitle();
-    // ONE batched DB write — only if logged in
-    // profiles = identity data, always home region (see supabase.js).
+    // ONE batched DB write — only if logged in. Firestore, not Supabase —
+    // see js/firestore-db.js for why profile data lives there. Also
+    // means no fixed-column schema to keep in sync client-side (this used
+    // to 400 with "column 'discord' not found" whenever a new profile
+    // field was added here before a matching Postgres migration was run —
+    // Firestore documents don't have that problem).
     const msg = el('profile-save-msg');
-    if (window._supabaseHome && _syncedUid) {
-        window._supabaseHome.from('profiles').update({
+    if (_syncedUid) {
+        fsSet('profiles', _syncedUid, {
             username:     _profileData.username,
             display_name: _profileData.displayName,
             avatar:     _profileData.avatar,
@@ -281,7 +285,7 @@ function saveProfile() {
             twitter:    _profileData.twitter,
             youtube:    _profileData.youtube,
             itch:       _profileData.itch,
-        }).eq('id', _syncedUid).then(({ error }) => {
+        }).then(({ error }) => {
             // Surface cloud-save failures instead of silently swallowing them —
             // without this, a failed write leaves the local UI looking "saved"
             // while the database keeps the old value, which then overwrites the
@@ -850,8 +854,8 @@ function closeFavDeckPicker() {
     // Favorite deck choice saves immediately, not just on the main Save
     // button, since it lives outside the edit modal.
     saveProfileData();
-    if (window._supabaseHome && _syncedUid) {
-        window._supabaseHome.from('profiles').update({ fav_deck: _profileData.favDeck || null }).eq('id', _syncedUid);
+    if (_syncedUid) {
+        fsSet('profiles', _syncedUid, { fav_deck: _profileData.favDeck || null });
     }
 }
 

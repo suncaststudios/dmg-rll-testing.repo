@@ -1,32 +1,30 @@
-/* CLUBS SYSTEM  –  Supabase backend
+/* CLUBS SYSTEM  –  Firestore backend
    ---------------------------------------------------------------
-   Uses window._supabaseHome (not the region-switchable window._supabase)
-   — clubs are identity/progression data like profiles, not matchmaking
-   data, and owner_id is even a foreign key into profiles(id), so this
-   table can't live in a different database than profiles anyway. See
-   the comment above window._supabaseHome's definition in supabase.js.
+   Uses Firestore (via js/firestore-db.js), not Supabase — clubs are
+   identity/progression data like profiles, and club membership is
+   tracked via profiles.club_id, so this has to live in the same
+   database as profiles regardless of which Supabase region the player
+   picked for matchmaking (see the comment above window._supabaseHome's
+   definition in supabase.js for why that split exists at all).
 
-   SQL (run in Supabase SQL Editor):
+   Firestore collection: clubs/{clubId}
+     { name, tag, badge, description, owner_id, wins, trophies,
+       win_streak, created_at }
+   profiles/{uid} gains a club_id field pointing at a clubs/{id} doc.
 
-   create table clubs (
-     id          uuid primary key default gen_random_uuid(),
-     name        text unique not null,
-     tag         text unique not null,
-     badge       text default '⚔️',
-     description text default '',
-     owner_id    uuid references profiles(id) on delete set null,
-     wins        int default 0,
-     trophies    int default 0,
-     win_streak  int default 0,
-     created_at  timestamptz default now()
-   );
-   -- After profiles table exists:
-   -- alter table profiles add column club_id uuid references clubs(id) on delete set null;
-   alter table clubs enable row level security;
-   create policy "read clubs"   on clubs for select using (true);
-   create policy "insert clubs" on clubs for insert with check (auth.uid() is not null);
-   create policy "update clubs" on clubs for update using (auth.uid() = owner_id);
-   create policy "delete clubs" on clubs for delete using (auth.uid() = owner_id);
+   Firestore has no server-side OR/ILIKE search the way Postgres did —
+   searchClubs() below fetches a bounded, trophy-ordered batch and
+   filters client-side instead of trying to fake full-text search.
+
+   Security rules (Firestore console → Rules), matching the old RLS
+   policies' intent:
+
+     match /clubs/{clubId} {
+       allow read: if true;
+       allow create: if request.auth != null;
+       allow update, delete: if request.auth != null
+                              && request.auth.uid == resource.data.owner_id;
+     }
    ---------------------------------------------------------------
    Local state:
      _clubsState.myClub  — club object the user belongs to, or null
@@ -80,14 +78,11 @@ function _clubsCloseCreateModal() {
 }
 
 async function _loadMyClub() {
-    const sb = window._supabaseHome;
-    if (!sb || !_syncedUid) { _renderMyClub(null); return; }
+    if (!_syncedUid) { _renderMyClub(null); return; }
     try {
-        const { data: profile } = await sb
-            .from('profiles').select('club_id').eq('id', _syncedUid).maybeSingle();
+        const profile = await fsGet('profiles', _syncedUid);
         if (!profile?.club_id) { _renderMyClub(null); return; }
-        const { data: club } = await sb
-            .from('clubs').select('*').eq('id', profile.club_id).maybeSingle();
+        const club = await fsGet('clubs', profile.club_id);
         _clubsState.myClub = club || null;
         _clubsState.myRole = club?.owner_id === _syncedUid ? 'owner' : 'member';
         _renderMyClub(club);
@@ -120,13 +115,10 @@ function _renderMyClub(club) {
 }
 
 async function _loadLeaderboard() {
-    const sb   = window._supabaseHome;
     const list = document.getElementById('clubs-lb-list');
-    if (!sb || !list) return;
+    if (!list) return;
     try {
-        const { data: clubs } = await sb
-            .from('clubs').select('id,name,tag,badge,wins,trophies')
-            .order('trophies', { ascending: false }).limit(20);
+        const clubs = await fsList('clubs', { orderByField: 'trophies', ascending: false, limit: 20 });
         if (!clubs || clubs.length === 0) {
             list.innerHTML = `<div class="clubs-auth-notice">
                 <div class="clubs-auth-icon">🏆</div>
@@ -154,16 +146,18 @@ async function _loadLeaderboard() {
 }
 
 async function searchClubs() {
-    const sb  = window._supabaseHome;
-    const q   = (document.getElementById('clubs-search-input')?.value||'').trim();
+    const q   = (document.getElementById('clubs-search-input')?.value||'').trim().toLowerCase();
     const out = document.getElementById('clubs-browse-list');
-    if (!sb || !out) return;
+    if (!out) return;
     try {
-        let query = sb.from('clubs')
-            .select('id,name,tag,badge,description,wins,trophies').limit(15);
-        if (q) query = query.or(`name.ilike.%${q}%,tag.ilike.%${q}%`);
-        else   query = query.order('trophies', { ascending: false });
-        const { data: clubs } = await query;
+        // Firestore can't do OR/ILIKE server-side — fetch a bounded batch
+        // ordered by trophies and filter client-side against name/tag when
+        // there's a search term. Fine at club-list scale; would need a
+        // real search index (Algolia etc) if the club count ever got huge.
+        const batch = await fsList('clubs', { orderByField: 'trophies', ascending: false, limit: q ? 100 : 15 });
+        const clubs = q
+            ? batch.filter(c => (c.name||'').toLowerCase().includes(q) || (c.tag||'').toLowerCase().includes(q)).slice(0, 15)
+            : batch;
         if (!clubs || clubs.length === 0) {
             out.innerHTML = '<div class="clubs-auth-notice" style="padding-top:12px;"><div class="clubs-auth-sub">No clubs found.</div></div>';
             return;
@@ -192,9 +186,8 @@ function _refreshCreatePanel() {
 }
 
 async function createClub() {
-    const sb       = window._supabaseHome;
     const statusEl = document.getElementById('club-create-status');
-    if (!sb || !_syncedUid) { if (statusEl) statusEl.textContent = 'Sign in first.'; return; }
+    if (!_syncedUid) { if (statusEl) statusEl.textContent = 'Sign in first.'; return; }
     const name  = (document.getElementById('club-create-name')?.value  ||'').trim();
     const tag   = (document.getElementById('club-create-tag')?.value   ||'').trim().toUpperCase();
     const badge = (document.getElementById('club-create-badge')?.value ||'⚔️').trim();
@@ -204,12 +197,28 @@ async function createClub() {
     if (_clubsState.myClub) { if (statusEl) statusEl.textContent = 'Leave current club first.'; return; }
     if (statusEl) statusEl.textContent = 'Creating…';
     try {
-        const { data: club, error } = await sb.from('clubs')
-            .insert({ name, tag, badge, description: desc, owner_id: _syncedUid })
-            .select().single();
-        if (error) { if (statusEl) statusEl.textContent = error.message; return; }
+        // Firestore has no unique-column constraint like Postgres did, so
+        // name/tag uniqueness has to be checked explicitly here. Not
+        // perfectly race-proof against two simultaneous creates (would
+        // need a Firestore transaction on a reserved-names doc for that),
+        // but club creation is rare enough that this is a reasonable
+        // trade-off rather than adding real transaction machinery for it.
+        const [tagTaken, nameTaken] = await Promise.all([
+            fsWhere('clubs', 'tag', tag, 1),
+            fsWhere('clubs', 'name', name, 1),
+        ]);
+        if (tagTaken.length)  { if (statusEl) statusEl.textContent = 'That tag is already taken.';  return; }
+        if (nameTaken.length) { if (statusEl) statusEl.textContent = 'That name is already taken.'; return; }
+
+        const { id: clubId, error } = await fsAdd('clubs', {
+            name, tag, badge, description: desc, owner_id: _syncedUid,
+            wins: 0, trophies: 0, win_streak: 0,
+            created_at: new Date().toISOString(),
+        });
+        if (error) { if (statusEl) statusEl.textContent = error.message || 'Error — try again.'; return; }
+        const club = { id: clubId, name, tag, badge, description: desc, owner_id: _syncedUid, wins: 0, trophies: 0, win_streak: 0 };
         // Fire-and-forget profile update
-        sb.from('profiles').update({ club_id: club.id }).eq('id', _syncedUid).then(() => {});
+        fsUpdate('profiles', _syncedUid, { club_id: clubId });
         _clubsState.myClub = club;
         _clubsState.myRole = 'owner';
         if (statusEl) statusEl.textContent = 'Club founded!';
@@ -223,11 +232,10 @@ async function createClub() {
 }
 
 async function joinClubById(clubId) {
-    const sb = window._supabaseHome;
-    if (!sb || !_syncedUid) { _showGoldToast('Sign in to join a club.'); return; }
+    if (!_syncedUid) { _showGoldToast('Sign in to join a club.'); return; }
     if (_clubsState.myClub) { _showGoldToast('Leave your current club first.'); return; }
     try {
-        await sb.from('profiles').update({ club_id: clubId }).eq('id', _syncedUid);
+        await fsUpdate('profiles', _syncedUid, { club_id: clubId });
         await _loadMyClub();
         switchClubsTab('my-club');
         if (typeof playSfx === 'function') playSfx('clubJoin');
@@ -235,11 +243,10 @@ async function joinClubById(clubId) {
 }
 
 async function leaveClub() {
-    const sb = window._supabaseHome;
-    if (!sb || !_syncedUid || !_clubsState.myClub) return;
+    if (!_syncedUid || !_clubsState.myClub) return;
     if (!confirm('Leave ' + _clubsState.myClub.name + '?')) return;
     try {
-        await sb.from('profiles').update({ club_id: null }).eq('id', _syncedUid);
+        await fsUpdate('profiles', _syncedUid, { club_id: null });
         _clubsState.myClub = null;
         _clubsState.myRole = null;
         _renderMyClub(null);
@@ -301,18 +308,26 @@ function _loadClubTournamentTab() {
     _fetchClubTournaments();
 }
 
-/* ── Fetch active and pending tournaments for our club ── */
+/* ── Fetch active and pending tournaments for our club ──
+   club_tournaments now lives in Firestore too (collection:
+   club_tournaments), not Supabase — it used to do a Postgres foreign-key
+   join straight into `clubs` (challenger_id -> clubs.name/badge/tag),
+   which can't work once clubs itself moved to Firestore. Rather than
+   doing two round-trip lookups per tournament on every render, the
+   challenger/defender's name/badge/tag are denormalized directly onto
+   the tournament doc at creation time (see clubChallenge() below) — a
+   standard Firestore pattern for avoiding joins. */
 async function _fetchClubTournaments() {
-    const sb = window._supabaseHome;
-    if (!sb || !_clubsState.myClub) return;
+    if (!_clubsState.myClub) return;
     const cid = _clubsState.myClub.id;
     try {
-        const { data } = await sb.from('club_tournaments')
-            .select('*, challenger:challenger_id(name,badge,tag), defender:defender_id(name,badge,tag)')
-            .or(`challenger_id.eq.${cid},defender_id.eq.${cid}`)
-            .neq('status', 'done')
-            .order('created_at', { ascending: false });
-        _renderClubTournaments(data || []);
+        const [asChallenger, asDefender] = await Promise.all([
+            fsWhere('club_tournaments', 'challenger_id', cid, 25),
+            fsWhere('club_tournaments', 'defender_id', cid, 25),
+        ]);
+        const data = [...asChallenger, ...asDefender].filter(t => t.status !== 'done');
+        data.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+        _renderClubTournaments(data);
     } catch(e) { console.warn('[DR ClubTourn] fetch error', e); }
 }
 
@@ -331,8 +346,12 @@ function _renderClubTournaments(rows) {
     } else {
         list.innerHTML = active.map(t => {
             const isChallenger = t.challenger_id === myId;
-            const us   = isChallenger ? t.challenger : t.defender;
-            const them = isChallenger ? t.defender   : t.challenger;
+            const us   = isChallenger
+                ? { name: t.challenger_name, badge: t.challenger_badge, tag: t.challenger_tag }
+                : { name: t.defender_name,   badge: t.defender_badge,   tag: t.defender_tag };
+            const them = isChallenger
+                ? { name: t.defender_name,   badge: t.defender_badge,   tag: t.defender_tag }
+                : { name: t.challenger_name, badge: t.challenger_badge, tag: t.challenger_tag };
             const ourW = isChallenger ? t.challenger_wins : t.defender_wins;
             const thW  = isChallenger ? t.defender_wins   : t.challenger_wins;
             const need = Math.ceil(t.rounds / 2);
@@ -360,7 +379,9 @@ function _renderClubTournaments(rows) {
     } else {
         pending.innerHTML = pend.map(t => {
             const isChallenger = t.challenger_id === myId;
-            const other = isChallenger ? t.defender : t.challenger;
+            const other = isChallenger
+                ? { name: t.defender_name,   badge: t.defender_badge,   tag: t.defender_tag }
+                : { name: t.challenger_name, badge: t.challenger_badge, tag: t.challenger_tag };
             const canAccept = !isChallenger;
             return `
             <div class="club-card" style="gap:8px;">
@@ -380,34 +401,46 @@ function _renderClubTournaments(rows) {
 
 /* ── Challenge another club by tag ── */
 async function clubChallenge() {
-    const sb     = window._supabaseHome;
     const tag    = (document.getElementById('clubs-tourn-tag-input')?.value || '').trim().toUpperCase();
     const status = document.getElementById('clubs-tourn-status');
-    if (!sb || !_syncedUid)              { if (status) status.textContent = 'Sign in first.'; return; }
+    if (!_syncedUid)                     { if (status) status.textContent = 'Sign in first.'; return; }
     if (!_clubsState.myClub)             { if (status) status.textContent = 'Join a club first.'; return; }
     if (!tag || tag.length < 2)          { if (status) status.textContent = 'Enter a valid club tag.'; return; }
     if (tag === _clubsState.myClub.tag)  { if (status) status.textContent = "You can't challenge your own club."; return; }
 
     if (status) status.textContent = 'Looking up club…';
     try {
-        const { data: target } = await sb.from('clubs').select('id,name,tag').eq('tag', tag).maybeSingle();
+        const matches = await fsWhere('clubs', 'tag', tag, 1);
+        const target = matches[0];
         if (!target) { if (status) status.textContent = 'Club not found.'; return; }
 
         // Check no existing active/pending tournament between these two clubs
-        const { data: existing } = await sb.from('club_tournaments')
-            .select('id').or(`and(challenger_id.eq.${_clubsState.myClub.id},defender_id.eq.${target.id}),and(challenger_id.eq.${target.id},defender_id.eq.${_clubsState.myClub.id})`)
-            .neq('status', 'done').maybeSingle();
+        const [a, b] = await Promise.all([
+            fsWhere('club_tournaments', 'challenger_id', _clubsState.myClub.id, 25),
+            fsWhere('club_tournaments', 'defender_id', _clubsState.myClub.id, 25),
+        ]);
+        const existing = [...a, ...b].find(t =>
+            t.status !== 'done' &&
+            ((t.challenger_id === _clubsState.myClub.id && t.defender_id === target.id) ||
+             (t.challenger_id === target.id && t.defender_id === _clubsState.myClub.id)));
         if (existing) { if (status) status.textContent = 'A tournament already exists with this club.'; return; }
 
-        const { error } = await sb.from('club_tournaments').insert({
-            challenger_id:   _clubsState.myClub.id,
-            defender_id:     target.id,
-            status:          'pending',
-            challenger_wins: 0,
-            defender_wins:   0,
-            rounds:          3,
+        const { error } = await fsAdd('club_tournaments', {
+            challenger_id:     _clubsState.myClub.id,
+            challenger_name:   _clubsState.myClub.name,
+            challenger_badge:  _clubsState.myClub.badge || '⚔️',
+            challenger_tag:    _clubsState.myClub.tag,
+            defender_id:       target.id,
+            defender_name:     target.name,
+            defender_badge:    target.badge || '⚔️',
+            defender_tag:      target.tag,
+            status:            'pending',
+            challenger_wins:   0,
+            defender_wins:     0,
+            rounds:            3,
+            created_at:        new Date().toISOString(),
         });
-        if (error) { if (status) status.textContent = error.message; return; }
+        if (error) { if (status) status.textContent = error.message || 'Error — try again.'; return; }
         if (status) status.textContent = `Challenge sent to ${target.name}!`;
         if (document.getElementById('clubs-tourn-tag-input')) document.getElementById('clubs-tourn-tag-input').value = '';
         setTimeout(() => { if (status) status.textContent = ''; }, 3000);
@@ -420,36 +453,31 @@ async function clubChallenge() {
 
 /* ── Accept a challenge ── */
 async function acceptClubChallenge(tournId) {
-    const sb = window._supabaseHome;
-    if (!sb) return;
     try {
-        await sb.from('club_tournaments').update({ status: 'active' }).eq('id', tournId);
+        await fsUpdate('club_tournaments', tournId, { status: 'active' });
         _fetchClubTournaments();
     } catch(e) { console.warn('[DR ClubTourn] accept error', e); }
 }
 
 /* ── Cancel / decline a challenge ── */
 async function cancelClubChallenge(tournId) {
-    const sb = window._supabaseHome;
-    if (!sb) return;
     try {
-        await sb.from('club_tournaments').delete().eq('id', tournId);
+        await fsDelete('club_tournaments', tournId);
         _fetchClubTournaments();
     } catch(e) { console.warn('[DR ClubTourn] cancel error', e); }
 }
 
 /* ── Record a match result for an active club tournament ── */
 async function recordClubTournamentWin(winnersClubId) {
-    const sb = window._supabaseHome;
-    if (!sb || !_clubsState.myClub) return;
+    if (!_clubsState.myClub) return;
     const myId = _clubsState.myClub.id;
     try {
         // Find the active tournament involving our club
-        const { data: tourn } = await sb.from('club_tournaments')
-            .select('*')
-            .or(`challenger_id.eq.${myId},defender_id.eq.${myId}`)
-            .eq('status', 'active')
-            .maybeSingle();
+        const [a, b] = await Promise.all([
+            fsWhere('club_tournaments', 'challenger_id', myId, 25),
+            fsWhere('club_tournaments', 'defender_id', myId, 25),
+        ]);
+        const tourn = [...a, ...b].find(t => t.status === 'active');
         if (!tourn) return;
 
         const isChallenger  = tourn.challenger_id === winnersClubId;
@@ -464,14 +492,13 @@ async function recordClubTournamentWin(winnersClubId) {
             defender_wins:   dWins,
             ...(done ? { status: 'done', resolved_at: new Date().toISOString() } : {}),
         };
-        await sb.from('club_tournaments').update(update).eq('id', tourn.id);
+        await fsUpdate('club_tournaments', tourn.id, update);
 
         // Award trophies to winning club
         if (done) {
-            // Increment trophies via manual fetch+update
-            const { data: winClub } = await sb.from('clubs').select('trophies').eq('id', winnerClubId).maybeSingle();
+            const winClub = await fsGet('clubs', winnerClubId);
             if (winClub) {
-                await sb.from('clubs').update({ trophies: (winClub.trophies || 0) + CLUB_TOURN_TROPHIES }).eq('id', winnerClubId);
+                await fsUpdate('clubs', winnerClubId, { trophies: (winClub.trophies || 0) + CLUB_TOURN_TROPHIES });
             }
             if (typeof _lobbyChatSystem === 'function') _lobbyChatSystem(`🏆 Club tournament decided! ${winnersClubId === myId ? 'Your club wins!' : 'Opponent club wins.'} +${CLUB_TOURN_TROPHIES} trophies awarded.`);
         }

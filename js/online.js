@@ -387,25 +387,22 @@ function _refreshSettingsUI() {
 ======================================================================= */
 
 async function _submitMatchResult(won) {
-    // profiles = identity data, always home region (see supabase.js) —
+    // profiles = Firestore now, not Supabase (see js/firestore-db.js) —
     // wins/losses should accumulate the same regardless of which region
     // the match was actually played on.
-    const sb  = window._supabaseHome;
-    if (!sb || !_syncedUid) return;
+    if (!_syncedUid) return;
 
     try {
-        const { data: myProfile } = await sb
-            .from('profiles').select('wins, losses')
-            .eq('id', _syncedUid).maybeSingle();
+        const myProfile = await fsGet('profiles', _syncedUid);
         if (!myProfile) return;
 
         const newWins   = (myProfile.wins   || 0) + (won ? 1 : 0);
         const newLosses = (myProfile.losses || 0) + (!won ? 1 : 0);
 
-        sb.from('profiles').update({
+        fsSet('profiles', _syncedUid, {
             wins:   newWins,
             losses: newLosses,
-        }).eq('id', _syncedUid).then(() => {});
+        });
 
         _profileData.wins   = newWins;
         _profileData.losses = newLosses;

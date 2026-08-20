@@ -544,29 +544,28 @@ function _shopRefund(id) {
     _shopSyncOwned();
 }
 
-/* ── Sync owned list to Supabase ── */
+/* ── Sync owned list to Firebase ──
+   Personal inventory, same category as profile data — items you bought
+   shouldn't disappear (or be tied to) whichever Supabase region you
+   picked for matchmaking, so this lives in Firestore, not Supabase. */
 async function _shopSyncOwned() {
-    // shop_owned = personal inventory, always home region (see supabase.js)
-    // — items you bought shouldn't disappear if you switch server regions.
-    const sb  = window._supabaseHome;
     const uid = window._syncedUid || (typeof _syncedUid !== 'undefined' ? _syncedUid : null);
-    if (!sb || !uid) return;
+    if (!uid) return;
     try {
         const ownedArr = [..._shopOwned].map(id => {
             const item = SHOP_POOL.find(i => i.id === id);
             return { item_id: id, item_name: item?.name || id };
         });
-        await sb.from('shop_owned').upsert({ user_id: uid, owned: ownedArr }, { onConflict: 'user_id' });
+        await fsSet('shop_owned', uid, { owned: ownedArr });
     } catch(e) {}
 }
 
-/* ── Load owned from Supabase on login ── */
+/* ── Load owned from Firebase on login ── */
 async function _shopLoadOwned() {
-    const sb  = window._supabaseHome; // shop_owned = home region, see _shopSyncOwned above
     const uid = window._syncedUid || (typeof _syncedUid !== 'undefined' ? _syncedUid : null);
-    if (!sb || !uid) return;
+    if (!uid) return;
     try {
-        const { data } = await sb.from('shop_owned').select('owned').eq('user_id', uid).maybeSingle();
+        const data = await fsGet('shop_owned', uid);
         if (data?.owned) {
             data.owned.forEach(e => _shopOwned.add(e.item_id));
             _shopSave();

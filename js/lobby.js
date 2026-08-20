@@ -849,10 +849,9 @@ function _lobbyReceiveChallenge(payload) {
 
 /* ══════════════════ VIEW PROFILE ══════════════════ */
 function _lobbyViewProfile(uid) {
-    // profiles = identity data, always home region (see supabase.js) —
+    // profiles = Firestore now, not Supabase (see js/firestore-db.js) —
     // a player's own profile looks the same no matter which lobby/region
     // someone is viewing it from.
-    const sb = window._supabaseHome;
     // Build/show modal immediately with loading state
     let modal = document.getElementById('lobby-profile-modal');
     if (!modal) {
@@ -884,18 +883,17 @@ function _lobbyViewProfile(uid) {
         </div>
     `;
 
-    if (!sb || !uid) {
+    if (!uid) {
         document.getElementById('lpm-content').innerHTML =
             '<div style="color:#c0392b;font-size:11px;">Could not load profile.</div>';
         return;
     }
 
-    sb.from('profiles').select('username,avatar,avatar_img,banner_img,bio,quote,level,xp,wins,losses')
-        .eq('id', uid).maybeSingle()
-        .then(({ data, error }) => {
+    fsGet('profiles', uid)
+        .then(data => {
             const c = document.getElementById('lpm-content');
             if (!c) return;
-            if (error || !data) {
+            if (!data) {
                 c.innerHTML = '<div style="color:#c0392b;font-size:11px;">Profile not found.</div>';
                 return;
             }

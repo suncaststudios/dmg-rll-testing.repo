@@ -60,10 +60,10 @@ function _loadEquippedCosmetics() {
 function _saveEquippedCosmetics() {
     try { localStorage.setItem('dr_equipped_cosmetics', JSON.stringify(_equippedCosmetics)); } catch (e) {}
     // Best-effort cloud sync, same pattern as profile saves — never blocks the UI.
-    // profiles = identity data, always home region (see supabase.js).
-    if (window._supabaseHome && typeof _syncedUid !== 'undefined' && _syncedUid) {
-        window._supabaseHome.from('profiles').update({ equipped_cosmetics: _equippedCosmetics })
-            .eq('id', _syncedUid).then(({ error }) => {
+    // profiles = Firestore now, not Supabase (see js/firestore-db.js).
+    if (typeof _syncedUid !== 'undefined' && _syncedUid) {
+        fsSet('profiles', _syncedUid, { equipped_cosmetics: _equippedCosmetics })
+            .then(({ error }) => {
                 if (error) console.warn('[customize] cloud sync failed', error);
             });
     }

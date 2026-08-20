@@ -236,29 +236,14 @@ function claimQuest(questId) {
         setTimeout(() => awardXP(def.xp, 'Quest: ' + def.name), 600);
     }
 
-    // Sync claim to Supabase (fire and forget)
-    _questSyncClaim(questId, def);
+    // Quest completions are local-only — no server involved (quests are
+    // personal, session-scoped progression, not something that needs to
+    // sync across devices or be queried by anyone else). Everything
+    // already lives in localStorage via _questSave() above.
     if (typeof _recordChallengeCompleted === 'function') _recordChallengeCompleted();
 
     _questRenderIfOpen();
     playSfx('questComplete');
-}
-
-async function _questSyncClaim(questId, def) {
-    // quest_claims = personal progression, always home region (see supabase.js)
-    const sb  = window._supabaseHome;
-    const uid = window._syncedUid;
-    if (!sb || !uid) return;
-    try {
-        await sb.from('quest_claims').insert({
-            user_id:   uid,
-            quest_id:  questId,
-            quest_name:def.name,
-            gold:      def.gold,
-            xp:        def.xp || 0,
-            claimed_at:new Date().toISOString(),
-        });
-    } catch(e) { /* non-critical */ }
 }
 
 /* ─── Hooks into existing tracking system ─────────────────────────── */

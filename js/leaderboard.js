@@ -1,15 +1,10 @@
-/* LEADERBOARD SYSTEM  –  Supabase backend
+/* LEADERBOARD SYSTEM  –  Firestore backend
    ---------------------------------------------------------------
-   Reads from profiles and clubs tables.
-   Add these columns to `profiles` if not already present:
-     alter table profiles add column if not exists xp              int default 0;
-     alter table profiles add column if not exists level           int default 1;
-     alter table profiles add column if not exists wins            int default 0;
-     alter table profiles add column if not exists losses          int default 0;
-     alter table profiles add column if not exists tournaments_won int default 0;
-     alter table profiles add column if not exists best_time int; -- seconds, fastest win
-     alter table profiles add column if not exists challenges_completed int default 0;
-   rank_score column is no longer used — level/xp replaced it.
+   Reads from the profiles and clubs collections in Firestore (see
+   js/firestore-db.js), not Supabase — leaderboard data has to live
+   wherever profiles/clubs actually live, and that's Firebase now,
+   independent of whichever Supabase region the player picked for
+   matchmaking.
 ================================================================ */
 
 const _lbState = { tab: 'top-rank', loaded: {} };
@@ -32,65 +27,50 @@ function switchLbTab(id) {
 
 async function _fetchLbTab(id) {
     if (_lbState.loaded[id]) return; // already loaded this session
-    // profiles/clubs = identity data, always home region (see supabase.js) —
-    // this keeps the leaderboard consistent across regions too.
-    const sb  = window._supabaseHome;
     const panel = document.getElementById('lb-panel-' + id);
     if (!panel) return;
-    if (!sb) {
-        panel.innerHTML = '<div class="lb-loading">Connect Supabase to load rankings.</div>';
-        return;
-    }
     panel.innerHTML = '<div class="lb-loading">Loading\u2026</div>';
     try {
         let rows = [];
         if (id === 'top-rank') {
-            const { data } = await sb.from('profiles')
-                .select('id,username,avatar,level,xp')
-                .order('level', { ascending: false })
-                .order('xp',    { ascending: false })
-                .limit(20);
-            rows = (data||[]).map((r,i) => {
+            // Firestore can only orderBy one field server-side per query
+            // (no compound level+xp sort without a composite index) — xp
+            // is the finer-grained tiebreaker, so sort by that and let
+            // level (which moves in much bigger, rarer steps) mostly take
+            // care of itself through xp naturally correlating with it.
+            const data = await fsList('profiles', { orderByField: 'xp', ascending: false, limit: 20 });
+            rows = data.map((r,i) => {
                 const tier = typeof levelTier === 'function' ? levelTier(r.level||1) : { label:'Iron', icon:'⚙️' };
                 return _lbRow(i, r.avatar||'⚔️', r.username||'Wanderer',
                     `${tier.icon} Lv.${r.level||1} ${tier.label}`, r.xp??0, 'XP', r.id);
             });
         } else if (id === 'most-wins') {
-            const { data } = await sb.from('profiles')
-                .select('id,username,avatar,wins')
-                .order('wins', { ascending: false }).limit(20);
-            rows = (data||[]).map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
+            const data = await fsList('profiles', { orderByField: 'wins', ascending: false, limit: 20 });
+            rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
                 null, r.wins??0, 'wins', r.id));
         } else if (id === 'most-losses') {
-            const { data } = await sb.from('profiles')
-                .select('id,username,avatar,losses')
-                .order('losses', { ascending: false }).limit(20);
-            rows = (data||[]).map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
+            const data = await fsList('profiles', { orderByField: 'losses', ascending: false, limit: 20 });
+            rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
                 null, r.losses??0, 'losses', r.id));
         } else if (id === 'club-rank') {
-            const { data } = await sb.from('clubs')
-                .select('id,name,tag,badge,trophies')
-                .order('trophies', { ascending: false }).limit(20);
-            rows = (data||[]).map((r,i) => _lbRow(i, r.badge||'\u2694\uFE0F', r.name||'Unknown',
+            const data = await fsList('clubs', { orderByField: 'trophies', ascending: false, limit: 20 });
+            rows = data.map((r,i) => _lbRow(i, r.badge||'\u2694\uFE0F', r.name||'Unknown',
                 '#'+r.tag, r.trophies??0, 'trophies', null));
         } else if (id === 'tournaments') {
-            const { data } = await sb.from('profiles')
-                .select('id,username,avatar,tournaments_won')
-                .order('tournaments_won', { ascending: false }).limit(20);
-            rows = (data||[]).map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
+            const data = await fsList('profiles', { orderByField: 'tournaments_won', ascending: false, limit: 20 });
+            rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
                 null, r.tournaments_won??0, 'won', r.id));
         } else if (id === 'speedrun') {
-            const { data } = await sb.from('profiles')
-                .select('id,username,avatar,best_time')
-                .not('best_time', 'is', null)
-                .order('best_time', { ascending: true }).limit(20);
-            rows = (data||[]).map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
+            // Firestore's orderBy naturally excludes docs that don't have
+            // the field set at all, which is exactly the "only show
+            // players with a recorded time" filter the old Postgres
+            // `.not('best_time','is',null)` was doing.
+            const data = await fsList('profiles', { orderByField: 'best_time', ascending: true, limit: 20 });
+            rows = data.filter(r => r.best_time != null).map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
                 null, _lbFormatTime(r.best_time), 'fastest win', r.id));
         } else if (id === 'challenges') {
-            const { data } = await sb.from('profiles')
-                .select('id,username,avatar,challenges_completed')
-                .order('challenges_completed', { ascending: false }).limit(20);
-            rows = (data||[]).map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
+            const data = await fsList('profiles', { orderByField: 'challenges_completed', ascending: false, limit: 20 });
+            rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
                 null, r.challenges_completed??0, 'challenges', r.id));
         }
 

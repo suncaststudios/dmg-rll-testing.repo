@@ -97,21 +97,19 @@ async function _authHandleOAuthCallback() {
         const { data: { session } } = await sb.auth.getSession();
         if (!session?.user) return;
         const user = session.user;
-        // Check if profile row exists — if not, create one (first-time Discord login)
-        const { data: existing } = await sb.from('profiles')
-            .select('id').eq('id', user.uid).maybeSingle();
+        // Check if profile doc exists — if not, create one (first-time Discord login)
+        const existing = await fsGet('profiles', user.uid);
         if (!existing) {
             // Pull display name from Discord metadata
             const meta = user.user_metadata || {};
             const username = meta.full_name || meta.name || meta.custom_claims?.global_name || 'Wanderer';
             const avatarUrl = meta.avatar_url || '';
-            await sb.from('profiles').upsert({
-                id:            user.uid,
+            await fsSet('profiles', user.uid, {
                 username:      username.slice(0, 24),
                 avatar:        '⚔️',
                 avatar_img:    avatarUrl,
                 online_status: 'online',
-            }, { onConflict: 'id' });
+            });
         }
         sessionStorage.setItem('dr_tab_session', '1');
         await _authOnLogin(user);
@@ -295,23 +293,12 @@ async function _authCreateProfile() {
             }
         }
 
-        // 2b. Force-refresh the ID token before writing to Supabase. The
-        // onUserCreate Cloud Function (functions/index.js) sets the
-        // `role: authenticated` custom claim Supabase needs to treat this
-        // request as a logged-in user rather than anon — but that trigger
-        // runs asynchronously, not as part of signUp() itself, so the very
-        // first token issued here is very likely to predate it. Firebase's
-        // own docs call this out specifically: force-refreshing immediately
-        // after signup is what picks up a token containing the new claim
-        // instead of the stale pre-claim one from signUp()'s response.
-        try {
-            const fbUser = (typeof firebase !== 'undefined') ? firebase.auth().currentUser : null;
-            if (fbUser) await fbUser.getIdToken(/* forceRefresh */ true);
-        } catch (e) { console.warn('[DR Auth] token refresh before profile write failed', e); }
-
-        // 3. Upsert profile row (upsert = safe even if row already exists)
-        const { error: profErr } = await sb.from('profiles').upsert({
-            id:            uid,
+        // 3. Create profile doc (fsSet merges, so this is safe even if a
+        // doc already exists — e.g. a retry after a network error).
+        // Profile data lives in Firestore, not Supabase, specifically so
+        // it's independent of whichever Supabase region the player later
+        // picks for matchmaking — see js/firestore-db.js.
+        const { error: profErr } = await fsSet('profiles', uid, {
             username:      _authDraft.username,
             display_name:  _authDraft.displayName,
             avatar:        _authDraft.avatar,
@@ -321,9 +308,9 @@ async function _authCreateProfile() {
             quote:         _authDraft.quote,
             gender:        _authDraft.gender,
             online_status: 'online',
-        }, { onConflict: 'id' });
+        });
         if (profErr) {
-            console.warn('[DR Auth] profile upsert failed:', profErr.message);
+            console.warn('[DR Auth] profile save failed:', profErr.message);
             // Show the error to the user — profile not saved is a real problem
             err.textContent = 'Account created but profile failed to save: ' + profErr.message + '. Try logging in again.';
             // Don't return — still call _authOnLogin so they get in
@@ -399,20 +386,9 @@ function _authCheckDailyLoginGold() {
 
 /* ════════════════ FETCH PROFILE FROM DB ════════════════ */
 async function _fetchProfileByUid(uid, silent = false) {
-    const sb = window._fbAuth;
-    if (!sb || !uid) return;
+    if (!uid) return;
     try {
-        const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
-        if (error) {
-            // Don't silently eat this — a failed fetch here means the UI
-            // falls back to whatever local/preset data _profileData already
-            // has, which looks exactly like "my saved profile never loaded"
-            // with zero indication of why. (This is exactly what happened
-            // when profiles.id was still typed uuid — every fetch 400'd here
-            // and the profile view just quietly kept showing defaults.)
-            console.error('[Profile] fetch failed for uid', uid, ':', error);
-            return;
-        }
+        const data = await fsGet('profiles', uid);
         if (!data) return;
         // Merge DB data into local _profileData
         _profileData.username    = data.username    || _profileData.username;
@@ -537,11 +513,7 @@ function _setPrefStatus(status) {
     // Debounced DB write — only fires once per 3s no matter how fast they click
     clearTimeout(window._statusWriteTimer);
     window._statusWriteTimer = setTimeout(() => {
-        const sb = window._fbAuth;
-        if (sb && _syncedUid) {
-            sb.from('profiles').update({ online_status: status })
-              .eq('id', _syncedUid).then(() => {});
-        }
+        if (_syncedUid) fsUpdate('profiles', _syncedUid, { online_status: status });
     }, 3000);
 }
 
@@ -623,7 +595,6 @@ function _prefChangeGender() {
 }
 
 async function _prefDoGenderChange() {
-    const sb     = window._fbAuth;
     const newVal = document.getElementById('pref-gender-new')?.value;
     const box    = document.getElementById('pref-gender-confirm');
     if (box) box.classList.remove('show');
@@ -631,11 +602,11 @@ async function _prefDoGenderChange() {
     _profileData.genderChangedAt = new Date().toISOString();
     saveProfileData();
     _prefRefreshGenderCooldown();
-    if (sb && _syncedUid) {
-        await sb.from('profiles').update({
+    if (_syncedUid) {
+        await fsUpdate('profiles', _syncedUid, {
             gender:             newVal,
             gender_changed_at:  _profileData.genderChangedAt,
-        }).eq('id', _syncedUid);
+        });
     }
 }
 
@@ -688,8 +659,12 @@ async function _prefDeleteFinal() {
             password: pass,
         });
         if (signInErr) { if (err) err.textContent = 'Wrong password.'; return; }
-        // Delete profile row (this cascades to shop_owned etc via FK)
-        await sb.from('profiles').delete().eq('id', _syncedUid);
+        // Delete profile doc. Firestore has no FK cascade like Postgres
+        // did, so shop_owned (also moved to Firestore — see
+        // js/firestore-db.js) needs an explicit delete here too, not just
+        // profiles, to actually replicate the old cascade behavior.
+        await fsDelete('profiles', _syncedUid);
+        await fsDelete('shop_owned', _syncedUid);
         // Delete the actual Firebase Auth account server-side (client SDKs
         // can't do this themselves) via the deleteAccount Cloud Function.
         const { error: delErr } = await sb.auth.deleteAccount();

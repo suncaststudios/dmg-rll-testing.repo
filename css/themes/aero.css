@@ -291,8 +291,10 @@ body.theme-aero #forfeit-popup-body { color: #004478 !important; }
 
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
    Aero is a light theme, so invert the dark default panel first, then
-   hue-rotate back into the sky-blue/aqua family. ── */
-body.theme-aero #menu-profile, body.theme-aero #profile-edit-modal, body.theme-aero #menu-tournament,
+   hue-rotate back into the sky-blue/aqua family.
+   #menu-profile / #profile-edit-modal deliberately excluded — see the
+   comment in css/themes/space.css for why (recolors real user photos). ── */
+body.theme-aero #menu-tournament,
 body.theme-aero .chat-msg, body.theme-aero .translate-btn,
 body.theme-aero #menu-shop,
 body.theme-aero #menu-quests,

@@ -241,8 +241,14 @@ body.theme-8space { --intro-bright:#a0e8ff; --intro-mid:#00e5ff; --intro-dim:#0d
 body.theme-8space #forfeit-btn { background: #2a0a1a !important; border: 2px solid #ff2ec4 !important; color: #ff88d0 !important; border-radius: 0 !important; }
 body.theme-8space #forfeit-popup-box { background: #0a0722 !important; border: 3px solid #00e5ff !important; border-radius: 0 !important; box-shadow: 4px 4px 0 0 #ff2ec4 !important; }
 
-/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-8space #menu-profile, body.theme-8space #profile-edit-modal, body.theme-8space #menu-tournament,
+/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
+   #menu-profile and #profile-edit-modal were deliberately DROPPED from this
+   list — CSS filter on a parent bakes into the whole composited subtree, so
+   there's no way for a child to "undo" it. That meant this hue-rotate was
+   recoloring players' own uploaded avatar/banner photos, not just the UI
+   chrome around them. Losing the tint on the rest of the Profile screen's
+   chrome is the trade-off for not corrupting people's actual photos. ── */
+body.theme-8space #menu-tournament,
 body.theme-8space .chat-msg, body.theme-8space .translate-btn,
 body.theme-8space #menu-shop,
 body.theme-8space #menu-quests,

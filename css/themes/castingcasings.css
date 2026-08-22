@@ -259,8 +259,14 @@ body.theme-castingcasings { --intro-bright:#f0d8a8; --intro-mid:#c9963c; --intro
 body.theme-castingcasings #forfeit-btn { background: rgba(80,20,10,.2) !important; border: 1px solid rgba(200,90,40,.5) !important; color: rgba(230,140,80,.85) !important; border-radius: 0 !important; }
 body.theme-castingcasings #forfeit-popup-box { background: linear-gradient(160deg, rgba(20,13,16,.99), rgba(8,5,7,.99)) !important; border: 1px solid rgba(200,150,60,.4) !important; }
 
-/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-castingcasings #menu-profile, body.theme-castingcasings #profile-edit-modal, body.theme-castingcasings #menu-tournament,
+/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
+   #menu-profile and #profile-edit-modal were deliberately DROPPED from this
+   list — CSS filter on a parent bakes into the whole composited subtree, so
+   there's no way for a child to "undo" it. That meant this hue-rotate was
+   recoloring players' own uploaded avatar/banner photos, not just the UI
+   chrome around them. Losing the tint on the rest of the Profile screen's
+   chrome is the trade-off for not corrupting people's actual photos. ── */
+body.theme-castingcasings #menu-tournament,
 body.theme-castingcasings .chat-msg, body.theme-castingcasings .translate-btn,
 body.theme-castingcasings #menu-shop,
 body.theme-castingcasings #menu-quests,

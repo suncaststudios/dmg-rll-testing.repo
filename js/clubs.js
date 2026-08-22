@@ -46,6 +46,12 @@ function switchClubsTab(id) {
         t.classList.toggle('active', t.id === 'clubs-tab-' + (id === 'leaderboard' ? 'stats' : id)));
     document.querySelectorAll('.clubs-panel').forEach(p =>
         p.classList.toggle('active', p.id === 'clubs-panel-' + id));
+    // "my-club" was previously never re-rendered on tab switch at all — it
+    // only ever painted once, when openClubs() first opened the whole
+    // panel. That meant creating or joining a club (which updates
+    // _clubsState.myClub in memory just fine) never actually showed up
+    // here unless you closed and reopened the whole Clubs screen.
+    if (id === 'my-club')     _renderMyClub(_clubsState.myClub);
     if (id === 'leaderboard') _loadLeaderboard();
     if (id === 'browse')      searchClubs();
     if (id === 'tournament')  _loadClubTournamentTab();
@@ -217,8 +223,12 @@ async function createClub() {
         });
         if (error) { if (statusEl) statusEl.textContent = error.message || 'Error — try again.'; return; }
         const club = { id: clubId, name, tag, badge, description: desc, owner_id: _syncedUid, wins: 0, trophies: 0, win_streak: 0 };
-        // Fire-and-forget profile update
-        fsUpdate('profiles', _syncedUid, { club_id: clubId });
+        // Awaited (not fire-and-forget) — if the Clubs screen gets closed
+        // and reopened quickly after creating, openClubs() re-fetches from
+        // Firestore via _loadMyClub(), and a fire-and-forget write here
+        // could easily lose that race, making a freshly-created club
+        // "disappear" until the write eventually landed.
+        await fsUpdate('profiles', _syncedUid, { club_id: clubId });
         _clubsState.myClub = club;
         _clubsState.myRole = 'owner';
         if (statusEl) statusEl.textContent = 'Club founded!';

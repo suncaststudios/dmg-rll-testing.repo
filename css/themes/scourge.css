@@ -296,8 +296,14 @@ body.theme-scourge { --intro-bright:#cfe8c0; --intro-mid:#6fe05a; --intro-dim:#1
 body.theme-scourge #forfeit-btn { background: rgba(60,10,10,.2) !important; border: 1px solid rgba(120,30,30,.5) !important; color: rgba(200,90,90,.8) !important; }
 body.theme-scourge #forfeit-popup-box { background: linear-gradient(160deg, rgba(11,17,10,.99), rgba(4,6,4,.99)) !important; border: 1px solid rgba(111,224,90,.32) !important; }
 
-/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-scourge #menu-profile, body.theme-scourge #profile-edit-modal, body.theme-scourge #menu-tournament,
+/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
+   #menu-profile and #profile-edit-modal were deliberately DROPPED from this
+   list — CSS filter on a parent bakes into the whole composited subtree, so
+   there's no way for a child to "undo" it. That meant this hue-rotate was
+   recoloring players' own uploaded avatar/banner photos, not just the UI
+   chrome around them. Losing the tint on the rest of the Profile screen's
+   chrome is the trade-off for not corrupting people's actual photos. ── */
+body.theme-scourge #menu-tournament,
 body.theme-scourge .chat-msg, body.theme-scourge .translate-btn,
 body.theme-scourge #menu-shop,
 body.theme-scourge #menu-quests,

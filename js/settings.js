@@ -2190,6 +2190,16 @@ function _setBtnGroupValue(id, val) {
     const el = document.getElementById(id);
     if (!el || val == null) return;
     el.querySelectorAll('.settings-opt-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
+    // Same fix as _selectBtnGroupOption below — restoring a saved setting
+    // on panel load needs to update the hint text too, not just which
+    // button looks pressed, or it stays stuck on the default option's
+    // hardcoded HTML text until the user manually clicks something.
+    const activeBtn = el.querySelector('.settings-opt-btn.active');
+    if (activeBtn && activeBtn.dataset.hint) {
+        const item = el.closest('.settings-item');
+        const hint = item ? item.querySelector('.settings-hint') : null;
+        if (hint) hint.textContent = activeBtn.dataset.hint;
+    }
 }
 /* Generic click handler for the Low/Mid/High, Easy/Normal/Hard, Fast/Normal/Slow
    button groups — selecting an option only marks it active (pending); it
@@ -2200,6 +2210,20 @@ function _selectBtnGroupOption(btn) {
     if (!group) return;
     group.querySelectorAll('.settings-opt-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+
+    // Some option groups (Graphics Quality, AI Difficulty) have a hint
+    // line describing whichever mode is currently selected — previously
+    // this only ever toggled which button looked active and never
+    // touched the hint text at all, so it stayed permanently stuck on
+    // whatever was hardcoded for the default option in the HTML,
+    // regardless of what was actually selected. Buttons that want this
+    // carry a data-hint attribute; groups without one (UI Scale, AI
+    // Think Speed) just keep their existing mode-agnostic hint text.
+    if (btn.dataset.hint) {
+        const item = group.closest('.settings-item');
+        const hint = item ? item.querySelector('.settings-hint') : null;
+        if (hint) hint.textContent = btn.dataset.hint;
+    }
 }
 function previewGraphics(val)   { _selectBtnGroupOption(document.querySelector(`#opt-graphics .settings-opt-btn[data-val="${val}"]`)); }
 function previewDifficulty(val) { _selectBtnGroupOption(document.querySelector(`#opt-difficulty .settings-opt-btn[data-val="${val}"]`)); }

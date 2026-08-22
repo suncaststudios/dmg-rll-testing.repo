@@ -250,8 +250,14 @@ body.theme-cyberpunk { --intro-bright:#ff88cc; --intro-mid:#ff00aa; --intro-dim:
 body.theme-cyberpunk #forfeit-btn { background: rgba(255,0,155,.12) !important; border: 1px solid rgba(255,0,175,.48) !important; color: #ff80cc !important; border-radius: 0 !important; }
 body.theme-cyberpunk #forfeit-popup-box { background: linear-gradient(160deg, rgba(14,0,28,.99), rgba(6,0,14,.99)) !important; border: 1px solid rgba(255,0,155,.48) !important; border-radius: 0 !important; }
 
-/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ── */
-body.theme-cyberpunk #menu-profile, body.theme-cyberpunk #profile-edit-modal, body.theme-cyberpunk #menu-tournament,
+/* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
+   #menu-profile and #profile-edit-modal were deliberately DROPPED from this
+   list — CSS filter on a parent bakes into the whole composited subtree, so
+   there's no way for a child to "undo" it. That meant this hue-rotate was
+   recoloring players' own uploaded avatar/banner photos, not just the UI
+   chrome around them. Losing the tint on the rest of the Profile screen's
+   chrome is the trade-off for not corrupting people's actual photos. ── */
+body.theme-cyberpunk #menu-tournament,
 body.theme-cyberpunk .chat-msg, body.theme-cyberpunk .translate-btn,
 body.theme-cyberpunk #menu-shop,
 body.theme-cyberpunk #menu-quests,

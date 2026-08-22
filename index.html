@@ -1467,9 +1467,9 @@
                     <div class="settings-section-label" style="margin-top:14px;">Graphics Quality</div>
                     <div class="settings-item">
                         <div class="settings-btn-group" id="opt-graphics" style="margin-bottom:4px;">
-                            <button class="settings-opt-btn" data-val="low" onclick="previewGraphics('low')">Low</button>
-                            <button class="settings-opt-btn active" data-val="mid" onclick="previewGraphics('mid')">Mid</button>
-                            <button class="settings-opt-btn" data-val="high" onclick="previewGraphics('high')">High</button>
+                            <button class="settings-opt-btn" data-val="low" data-hint="Low — disables particles and glow effects for the best performance." onclick="previewGraphics('low')">Low</button>
+                            <button class="settings-opt-btn active" data-val="mid" data-hint="Balanced — default experience with all core effects enabled." onclick="previewGraphics('mid')">Mid</button>
+                            <button class="settings-opt-btn" data-val="high" data-hint="High — maximum particles, glow, and visual effects. May impact performance on lower-end devices." onclick="previewGraphics('high')">High</button>
                         </div>
                         <span class="settings-hint" id="graphics-hint">Balanced — default experience. Low disables particles and glow effects.</span>
                     </div>
@@ -1558,9 +1558,9 @@
                     <div class="settings-section-label">AI Difficulty</div>
                     <div class="settings-item">
                         <div class="settings-btn-group" id="opt-difficulty" style="margin-bottom:4px;">
-                            <button class="settings-opt-btn" data-val="easy" onclick="previewDifficulty('easy')">Easy</button>
-                            <button class="settings-opt-btn active" data-val="normal" onclick="previewDifficulty('normal')">Normal</button>
-                            <button class="settings-opt-btn" data-val="hard" onclick="previewDifficulty('hard')">Hard</button>
+                            <button class="settings-opt-btn" data-val="easy" data-hint="Easy — lower crit chance and gentler fail rates for the AI." onclick="previewDifficulty('easy')">Easy</button>
+                            <button class="settings-opt-btn active" data-val="normal" data-hint="Normal — balanced crit and fail rates for the AI." onclick="previewDifficulty('normal')">Normal</button>
+                            <button class="settings-opt-btn" data-val="hard" data-hint="Hard — higher crit chance and sharper fail rates for the AI." onclick="previewDifficulty('hard')">Hard</button>
                         </div>
                         <span class="settings-hint" id="difficulty-hint">Normal — balanced crit and fail rates for the AI.</span>
                     </div>

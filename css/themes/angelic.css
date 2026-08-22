@@ -258,8 +258,10 @@ body.theme-angelic { --intro-bright:#202122; --intro-mid:#54595d; --intro-dim:#a
 
 /* ── Extend theme to previously-unthemed panels: profile, tournament, chat ──
    Angelic is a neutral light/editorial theme — invert + desaturate the
-   default dark-brown panel toward a white/gray/gold heavenly look. ── */
-body.theme-angelic #menu-profile, body.theme-angelic #profile-edit-modal, body.theme-angelic #menu-tournament,
+   default dark-brown panel toward a white/gray/gold heavenly look.
+   #menu-profile / #profile-edit-modal deliberately excluded — see the
+   comment in css/themes/space.css for why (recolors real user photos). ── */
+body.theme-angelic #menu-tournament,
 body.theme-angelic .chat-msg, body.theme-angelic .translate-btn,
 body.theme-angelic #menu-shop,
 body.theme-angelic #menu-quests,

@@ -1604,6 +1604,35 @@
             font-size: 11px; color: rgba(180,140,70,0.7);
             font-style: italic; line-height: 1.6;
         }
+        /* ── Browse tab: click-to-expand club detail ── */
+        .club-browse-card { transition: border-color 0.15s; }
+        .club-browse-card:hover { border-color: rgba(140,100,30,0.55); }
+        .club-browse-expand {
+            border-top: 1px solid rgba(100,65,20,0.25);
+            padding-top: 10px; margin-top: 2px;
+            cursor: default;
+        }
+        .club-browse-row {
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 1px;
+            text-transform: uppercase; padding: 3px 0;
+        }
+        .club-browse-label { color: #6b4f2a; }
+        .club-browse-val   { color: #c8a460; }
+        .club-browse-members {
+            display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;
+        }
+        .club-browse-member-chip {
+            font-size: 9px; color: #b09050;
+            background: rgba(100,65,20,0.18);
+            border: 1px solid rgba(100,65,20,0.3); border-radius: 10px;
+            padding: 3px 8px;
+        }
+        .club-browse-you {
+            font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 1px;
+            text-transform: uppercase; color: rgba(140,95,30,0.6);
+            text-align: center; font-style: italic;
+        }
         .club-stats-row {
             display: flex; gap: 0;
             border-top: 1px solid rgba(100,65,20,0.2);

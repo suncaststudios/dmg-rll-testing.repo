@@ -98,6 +98,112 @@ async function _loadMyClub() {
     }
 }
 
+/* ── Club Settings modal (president only) ──
+   Two tabs: "Edit Club Content" (name/tag/badge/description) and
+   "Danger Zone" (disband). Reuses the same fields/validation as
+   createClub() where it makes sense (tag/name uniqueness). */
+
+function openClubSettings() {
+    if (_clubsState.myRole !== 'owner' || !_clubsState.myClub) return;
+    const club = _clubsState.myClub;
+    const nameEl  = document.getElementById('cs-edit-name');
+    const tagEl   = document.getElementById('cs-edit-tag');
+    const badgeEl = document.getElementById('cs-edit-badge');
+    const descEl  = document.getElementById('cs-edit-desc');
+    if (nameEl)  nameEl.value  = club.name || '';
+    if (tagEl)   tagEl.value   = club.tag  || '';
+    if (badgeEl) badgeEl.value = club.badge || '⚔️';
+    if (descEl)  descEl.value  = club.description || '';
+    _clubSetTxt('cs-edit-status', '');
+    _clubSetTxt('cs-danger-status', '');
+    _clubSettingsSwitchTab('content');
+    const modal = document.getElementById('club-settings-modal');
+    if (modal) modal.style.display = 'flex';
+    if (typeof playSfx === 'function') playSfx('menuClick');
+}
+
+function closeClubSettings() {
+    const modal = document.getElementById('club-settings-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function _clubSettingsSwitchTab(tab) {
+    const contentTab = document.getElementById('cs-tab-content');
+    const dangerTab  = document.getElementById('cs-tab-danger');
+    const contentPanel = document.getElementById('cs-panel-content');
+    const dangerPanel  = document.getElementById('cs-panel-danger');
+    const isContent = tab === 'content';
+    if (contentTab)   { contentTab.style.color = isContent ? '#e8c870' : '#6b4f2a'; contentTab.style.borderBottomColor = isContent ? '#c8a460' : 'transparent'; }
+    if (dangerTab)    { dangerTab.style.color  = !isContent ? '#e8c870' : '#6b4f2a'; dangerTab.style.borderBottomColor  = !isContent ? '#c8a460' : 'transparent'; }
+    if (contentPanel) contentPanel.style.display = isContent ? '' : 'none';
+    if (dangerPanel)  dangerPanel.style.display  = !isContent ? '' : 'none';
+}
+
+async function _clubSettingsSave() {
+    const status = document.getElementById('cs-edit-status');
+    if (_clubsState.myRole !== 'owner' || !_clubsState.myClub) { if (status) status.textContent = 'Only the club president can edit this.'; return; }
+    const club   = _clubsState.myClub;
+    const name   = (document.getElementById('cs-edit-name')?.value  || '').trim();
+    const tag    = (document.getElementById('cs-edit-tag')?.value   || '').trim().toUpperCase();
+    const badge  = (document.getElementById('cs-edit-badge')?.value || '⚔️').trim();
+    const desc   = (document.getElementById('cs-edit-desc')?.value  || '').trim();
+    if (!name)          { if (status) status.textContent = 'Club name required.';     return; }
+    if (tag.length < 3) { if (status) status.textContent = 'Tag must be 3–5 chars.'; return; }
+
+    if (status) status.textContent = 'Saving…';
+    try {
+        // Same uniqueness check as createClub() — only flag a conflict if
+        // the taken name/tag belongs to a DIFFERENT club than this one
+        // (otherwise editing without changing the name/tag would always
+        // "conflict" with itself).
+        if (tag !== club.tag) {
+            const tagTaken = await fsWhere('clubs', 'tag', tag, 1);
+            if (tagTaken.length && tagTaken[0].id !== club.id) { if (status) status.textContent = 'That tag is already taken.'; return; }
+        }
+        if (name !== club.name) {
+            const nameTaken = await fsWhere('clubs', 'name', name, 1);
+            if (nameTaken.length && nameTaken[0].id !== club.id) { if (status) status.textContent = 'That name is already taken.'; return; }
+        }
+
+        const { error } = await fsUpdate('clubs', club.id, { name, tag, badge, description: desc });
+        if (error) { if (status) status.textContent = error.message || 'Error — try again.'; return; }
+
+        Object.assign(_clubsState.myClub, { name, tag, badge, description: desc });
+        _renderMyClub(_clubsState.myClub);
+        if (status) status.textContent = 'Saved!';
+        setTimeout(closeClubSettings, 900);
+    } catch(e) {
+        if (status) status.textContent = 'Error — try again.';
+        console.warn('[DR Clubs] settings save error', e);
+    }
+}
+
+async function _clubSettingsDelete() {
+    const status = document.getElementById('cs-danger-status');
+    if (_clubsState.myRole !== 'owner' || !_clubsState.myClub) { if (status) status.textContent = 'Only the club president can do this.'; return; }
+    const club = _clubsState.myClub;
+    if (!confirm(`Disband ${club.name}? This removes every member and cannot be undone.`)) return;
+
+    if (status) status.textContent = 'Disbanding…';
+    try {
+        // Firestore has no FK cascade — clearing club_id off every member's
+        // profile has to happen explicitly, or they'd be left pointing at
+        // a club document that no longer exists.
+        const members = await fsWhere('profiles', 'club_id', club.id, 200);
+        await Promise.all(members.map(m => fsUpdate('profiles', m.id, { club_id: null })));
+        await fsDelete('clubs', club.id);
+
+        _clubsState.myClub = null;
+        _clubsState.myRole = null;
+        closeClubSettings();
+        _renderMyClub(null);
+        if (typeof _showGoldToast === 'function') _showGoldToast(`${club.name} has been disbanded.`);
+    } catch(e) {
+        if (status) status.textContent = 'Error — try again.';
+        console.warn('[DR Clubs] disband error', e);
+    }
+}
+
 function _renderMyClub(club) {
     const noClub = document.getElementById('clubs-no-club');
     const myCard = document.getElementById('clubs-my-club-card');
@@ -118,6 +224,20 @@ function _renderMyClub(club) {
     _clubSetTxt('my-club-wins',     club.wins       ?? 0);
     _clubSetTxt('my-club-trophies', club.trophies   ?? 0);
     _clubSetTxt('my-club-streak',   club.win_streak ?? 0);
+
+    // President-only Club Settings button
+    const settingsBtn = document.getElementById('clubs-settings-btn');
+    if (settingsBtn) settingsBtn.style.display = (_clubsState.myRole === 'owner') ? '' : 'none';
+
+    // Member count + global rank — previously left permanently at their
+    // hardcoded "0"/"#—" placeholders since nothing ever populated them.
+    fsWhere('profiles', 'club_id', club.id, 200).then(members => {
+        _clubSetTxt('my-club-members', members.length);
+    });
+    fsList('clubs', { orderByField: 'trophies', ascending: false, limit: 200 }).then(ranked => {
+        const idx = ranked.findIndex(c => c.id === club.id);
+        _clubSetTxt('my-club-rank', idx >= 0 ? '#' + (idx + 1) : '#—');
+    });
 }
 
 async function _loadLeaderboard() {
@@ -168,8 +288,12 @@ async function searchClubs() {
             out.innerHTML = '<div class="clubs-auth-notice" style="padding-top:12px;"><div class="clubs-auth-sub">No clubs found.</div></div>';
             return;
         }
+        // Clicking a card expands it in place (president, member count,
+        // description, a real Join button) instead of instantly joining on
+        // click — a single misclick used to join you into a club with no
+        // confirmation at all.
         out.innerHTML = clubs.map(c => `
-            <div class="club-card" style="cursor:pointer;" onclick="joinClubById('${_clubEsc(c.id)}')">
+            <div class="club-card club-browse-card" id="club-browse-${_clubEsc(c.id)}" style="cursor:pointer;" onclick="_clubBrowseToggle('${_clubEsc(c.id)}')">
                 <div class="club-card-header">
                     <div class="club-badge">${c.badge||'⚔️'}</div>
                     <div class="club-info">
@@ -179,8 +303,61 @@ async function searchClubs() {
                     <span class="club-tag">#${_clubEsc(c.tag)}</span>
                 </div>
                 ${c.description?`<div class="club-desc">${_clubEsc(c.description)}</div>`:''}
+                <div class="club-browse-expand" id="club-browse-expand-${_clubEsc(c.id)}" style="display:none;" onclick="event.stopPropagation()"></div>
             </div>`).join('');
     } catch(e) { console.warn('[DR Clubs] searchClubs error', e); }
+}
+
+/* ── Expand/collapse a browse card in place ──
+   Loads the president's name and member count (and — reserved for
+   later — a spot for club strikes) the first time a card is opened,
+   then shows a real Join button rather than joining on click. */
+const _clubBrowseExpanded = new Set();
+async function _clubBrowseToggle(clubId) {
+    const card = document.getElementById('club-browse-' + clubId);
+    const expandEl = document.getElementById('club-browse-expand-' + clubId);
+    if (!card || !expandEl) return;
+
+    const isOpen = _clubBrowseExpanded.has(clubId);
+    if (isOpen) {
+        _clubBrowseExpanded.delete(clubId);
+        expandEl.style.display = 'none';
+        return;
+    }
+    _clubBrowseExpanded.add(clubId);
+    expandEl.style.display = 'block';
+    expandEl.innerHTML = '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:rgba(100,65,20,0.5);padding:8px 0;">Loading…</div>';
+
+    try {
+        const club = await fsGet('clubs', clubId);
+        if (!club) { expandEl.innerHTML = '<div style="font-size:9px;color:#c0392b;">Club not found.</div>'; return; }
+        const [president, members] = await Promise.all([
+            club.owner_id ? fsGet('profiles', club.owner_id) : null,
+            fsWhere('profiles', 'club_id', clubId, 200),
+        ]);
+        const alreadyInAClub = !!_clubsState.myClub;
+        const isMyOwnClub    = _clubsState.myClub?.id === clubId;
+
+        expandEl.innerHTML = `
+            <div class="club-browse-detail">
+                <div class="club-browse-row"><span class="club-browse-label">President</span>
+                    <span class="club-browse-val">${president ? _clubEsc(president.username||'Unknown') : 'Unknown'}</span></div>
+                <div class="club-browse-row"><span class="club-browse-label">Members</span>
+                    <span class="club-browse-val">${members.length}</span></div>
+                ${members.length ? `<div class="club-browse-members">${members.slice(0,12).map(m =>
+                    `<span class="club-browse-member-chip">${m.avatar||'⚔️'} ${_clubEsc(m.username||'Wanderer')}</span>`).join('')}</div>` : ''}
+                <!-- Reserved: club strikes go here once that system exists -->
+                ${isMyOwnClub
+                    ? `<div class="club-browse-you" style="margin-top:8px;">This is your club.</div>`
+                    : alreadyInAClub
+                        ? `<div class="club-browse-you" style="margin-top:8px;">Leave your current club to join another.</div>`
+                        : `<button class="clubs-search-btn" style="width:100%;padding:8px 0;margin-top:8px;" onclick="event.stopPropagation(); joinClubById('${_clubEsc(clubId)}')">⚔ Join ${_clubEsc(club.name)}</button>`
+                }
+            </div>`;
+    } catch(e) {
+        expandEl.innerHTML = '<div style="font-size:9px;color:#c0392b;">Failed to load — try again.</div>';
+        console.warn('[DR Clubs] browse expand error', e);
+    }
 }
 
 function _refreshCreatePanel() {

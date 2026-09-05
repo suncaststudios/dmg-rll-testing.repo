@@ -2264,6 +2264,7 @@ function saveSettings() {
         particles:     _optChecked('opt-particles'),
         rarityGlow:    _optChecked('opt-rarity-glow'),
         muteBlur:      _optChecked('opt-mute-blur'),
+        mode3D:        _optChecked('opt-3d-mode'),
         legacyMusic:   _optChecked('opt-legacy-music'),
         customMusic:   _optChecked('opt-custom-music'),
         berserkerNerf: _optChecked('opt-berserker-nerf'),
@@ -2304,6 +2305,8 @@ function loadSettings() {
     setChecked('opt-particles',     s.particles);
     setChecked('opt-rarity-glow',   s.rarityGlow);
     setChecked('opt-mute-blur',     s.muteBlur);
+    setChecked('opt-3d-mode',       s.mode3D);
+    if (window.ThreeMode) window.ThreeMode.sync();
     setChecked('opt-legacy-music',  s.legacyMusic);
     // music.js reads dr_legacy_music directly (not the settings blob) so it
     // can resolve the right folder before/independent of settings.js's own

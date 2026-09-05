@@ -362,6 +362,9 @@ async function _authOnLogin(user) {
     if (typeof _customizeRenderPreview === 'function') _customizeRenderPreview(null);
     if (typeof _customizeSwitchTab === 'function' && typeof _customizeActiveTab !== 'undefined') _customizeSwitchTab(_customizeActiveTab);
     if (typeof _refreshMenuCardCosmetics === 'function') _refreshMenuCardCosmetics();
+    // Merge in any daily/weekly/unlimited quest progress saved from
+    // another device — see _questSyncFromFirebase in quests.js.
+    if (typeof _questSyncFromFirebase === 'function') _questSyncFromFirebase();
     if (typeof playSfx === 'function') playSfx('loginSuccess');
     // Daily login gold
     _authCheckDailyLoginGold();
@@ -628,6 +631,15 @@ async function _prefLogout() {
     if (typeof _customizeRenderPreview === 'function') _customizeRenderPreview(null);
     if (typeof _customizeSwitchTab === 'function' && typeof _customizeActiveTab !== 'undefined') _customizeSwitchTab(_customizeActiveTab);
     if (typeof _refreshMenuCardCosmetics === 'function') _refreshMenuCardCosmetics();
+    // Clear local daily/weekly/unlimited quest progress on logout too —
+    // otherwise a second account logging in on the same browser could
+    // pick up an unintended progress boost, since the post-login merge
+    // (_questSyncFromFirebase) takes the higher of local-vs-server per
+    // quest, and "local" would still be the previous account's numbers
+    // for the brief window before their own real data merges in.
+    if (typeof QUEST_KEY !== 'undefined') { try { localStorage.removeItem(QUEST_KEY); } catch(e) {} }
+    if (typeof _questLoad === 'function') { _questState = null; _questLoad(); }
+    if (typeof _questRenderIfOpen === 'function') _questRenderIfOpen();
     _updateStartScreen();
     _showAuthWall();
 }

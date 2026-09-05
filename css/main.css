@@ -4868,6 +4868,12 @@
             letter-spacing: 1.5px;
             color: rgba(140,95,30,.45);
         }
+        .quest-loading-note {
+            font-family: 'Cinzel', serif;
+            font-size: 9px; letter-spacing: 1.5px;
+            color: rgba(140,95,30,.5); font-style: italic;
+            padding: 10px 0;
+        }
 
         .quest-claim-btn {
             background: linear-gradient(90deg, rgba(60,100,20,.85), rgba(30,60,10,.9));
@@ -4991,4 +4997,18 @@
     font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 2px;
     color: #ffd76a; text-align: center; margin-top: 10px;
     text-shadow: 0 0 12px rgba(255,200,80,0.5);
+}
+
+/* ── 3D MODE ─────────────────────────────────────────────────────────
+   When active, the flat 2D hand/die/piles are hidden in favor of the
+   three.js scene rendered into #three-canvas (see js/3dmode.js). Game
+   logic is untouched — clicking a 3D card still calls playerAct(i). */
+body.mode-3d-active #p-hand,
+body.mode-3d-active #a-hand,
+body.mode-3d-active #die-box {
+    opacity: 0;
+    pointer-events: none;
+}
+#three-canvas {
+    background: transparent;
 }

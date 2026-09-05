@@ -140,4 +140,26 @@ async function fsWhere(collection, field, value, limit = 25) {
     }
 }
 
-window._fs = { fsGet, fsSet, fsUpdate, fsAdd, fsDelete, fsList, fsWhere };
+/* Atomically increment a numeric field (creating the document/field if it
+   doesn't exist yet). This is the only safe way to bump a shared counter
+   that many different clients might be writing to at the same moment
+   (club quest progress, community quest progress) — a naive read-then-
+   write from the client would lose updates whenever two people's writes
+   land close together, since the second write would overwrite the first
+   based on stale data it read before the first write landed. */
+async function fsIncrement(collection, id, field, amount) {
+    const db = _fsInit();
+    if (!db || !id) return { error: { message: 'Firestore not ready' } };
+    try {
+        await db.collection(collection).doc(id).set(
+            { [field]: firebase.firestore.FieldValue.increment(amount) },
+            { merge: true }
+        );
+        return { error: null };
+    } catch (e) {
+        console.error(`[DR Firestore] increment failed (${collection}/${id}.${field}):`, e);
+        return { error: e };
+    }
+}
+
+window._fs = { fsGet, fsSet, fsUpdate, fsAdd, fsDelete, fsList, fsWhere, fsIncrement };

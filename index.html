@@ -1205,6 +1205,33 @@
                 <div id="quest-weekly-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
             </div>
 
+            <!-- Unlimited quests -->
+            <div>
+                <div class="quest-section-header">
+                    <span class="shop-section-label" style="flex:1;">♾️ Unlimited Quests</span>
+                    <span style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;">Never resets</span>
+                </div>
+                <div id="quest-unlimited-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+            </div>
+
+            <!-- Club quest (only shown while in a club) -->
+            <div id="quest-club-section" style="display:none;">
+                <div class="quest-section-header">
+                    <span class="shop-section-label" style="flex:1;">🛡 Club Quest</span>
+                    <span style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;">Whole club, resets weekly</span>
+                </div>
+                <div id="quest-club-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+            </div>
+
+            <!-- Community quest -->
+            <div>
+                <div class="quest-section-header">
+                    <span class="shop-section-label" style="flex:1;">🌍 Community Quest</span>
+                    <span style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;">Everyone, resets monthly</span>
+                </div>
+                <div id="quest-community-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+            </div>
+
         </div>
     </div><!-- end menu-quests -->
 
@@ -1606,6 +1633,7 @@
                          provided .ogg files. Re-add track UI here once wired up. -->
 
                     <div class="settings-item">
+                        <label class="settings-check"><input type="checkbox" id="opt-3d-mode" onchange="if (window.ThreeMode) window.ThreeMode.sync(); saveSettings();"> 3D Mode</label>
                         <label class="settings-check"><input type="checkbox" id="opt-legacy-music" onchange="setLegacyMusicToggle(this.checked); saveSettings();"> Alternate Music</label>
                         <span class="settings-hint">play the alternate music of damage roll instead of the current music! (please note this does not effect all themes)</span>
                     </div>
@@ -2159,5 +2187,16 @@
 
 <script src="js/intro.js"></script>
 <script src="js/ad-box.js"></script>
+
+<!-- ── 3D MODE ── three.js r150+ requires ES Modules (the old global
+     three.min.js + examples/js/controls/OrbitControls.js pattern
+     silently breaks, e.g. "OrbitControls is not a constructor") -->
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module" src="js/3dmode.js"></script>
 </body>
 </html>

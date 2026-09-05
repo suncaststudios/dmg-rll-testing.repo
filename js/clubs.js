@@ -126,18 +126,29 @@ function _clubsCloseCreateModal() {
 }
 
 async function _loadMyClub() {
-    if (!_syncedUid) { _renderMyClub(null); return; }
+    if (!_syncedUid) { _renderMyClub(null); _refreshClubQuestState(); return; }
     try {
         const profile = await fsGet('profiles', _syncedUid);
-        if (!profile?.club_id) { _renderMyClub(null); return; }
+        if (!profile?.club_id) { _renderMyClub(null); _refreshClubQuestState(); return; }
         const club = await fsGet('clubs', profile.club_id);
         _clubsState.myClub = club || null;
         _clubsState.myRole = club?.owner_id === _syncedUid ? 'owner' : 'member';
         _renderMyClub(club);
+        _refreshClubQuestState();
     } catch(e) {
         console.warn('[DR Clubs] _loadMyClub error', e);
         _renderMyClub(null);
+        _refreshClubQuestState();
     }
+}
+
+/* Re-syncs the club quest system (quests.js) whenever club membership is
+   confirmed or changes — join, leave, create, disband, initial login.
+   Without this, _clubQuestState in quests.js would stay stuck on
+   whatever club (or lack of one) was active when the page first loaded,
+   silently misdirecting or dropping contributions after switching clubs. */
+function _refreshClubQuestState() {
+    if (typeof _questLoadClubQuest === 'function') _questLoadClubQuest();
 }
 
 /* ── Club Settings modal (president only) ──
@@ -244,6 +255,7 @@ async function _clubSettingsDelete() {
         _clubsState.myClub = null;
         _clubsState.myRole = null;
         _renderMyClub(null);
+        _refreshClubQuestState();
         switchClubsBigTab('myclub');
         if (typeof _showGoldToast === 'function') _showGoldToast(`${club.name} has been disbanded.`);
     } catch(e) {
@@ -276,6 +288,13 @@ function _renderMyClub(club) {
     // (presidents keep seeing "My Club", since it's unambiguously theirs).
     const bigTabEl = document.getElementById('clubs-bigtab-myclub');
     if (bigTabEl) bigTabEl.textContent = (_clubsState.myRole === 'owner') ? 'My Club' : club.name;
+
+    // Presidents can't leave — they have to disband instead (Danger Zone,
+    // under Settings). Showing "Leave" and then telling them "no, disband
+    // instead" after they click it was just confusing, so it's hidden
+    // outright for the president rather than shown-then-blocked.
+    const leaveBtn = document.getElementById('clubs-leave-btn');
+    if (leaveBtn) leaveBtn.style.display = (_clubsState.myRole === 'owner') ? 'none' : '';
 
     // Member count + global rank — previously left permanently at their
     // hardcoded "0"/"#—" placeholders since nothing ever populated them.
@@ -320,14 +339,14 @@ async function _loadClubRanking() {
             windowClubs.map((c, i) => {
                 const rank = startRank + i;
                 return `
-            <div class="club-lb-row ${c.id === myId ? 'club-lb-row-mine' : ''}" style="cursor:pointer;" onclick="_clubBrowseToggle('${_clubEsc(c.id)}')">
+            <div class="club-lb-row ${c.id === myId ? 'club-lb-row-mine' : ''}" style="cursor:pointer;" onclick="_clubBrowseToggle('${_clubEsc(c.id)}','rank')">
                 <span class="club-lb-rank ${rc[rank-1]||''}">${rank}</span>
                 <span class="club-lb-avatar">${c.badge||'⚔️'}</span>
                 <span class="club-lb-name">${_clubEsc(c.name)}
                     <span style="color:#6b4f2a;font-size:8px;">#${_clubEsc(c.tag)}</span></span>
                 <span class="club-lb-score">${c.trophies??0} ✦</span>
             </div>
-            <div class="club-browse-expand" id="club-browse-expand-${_clubEsc(c.id)}" style="display:none;" onclick="event.stopPropagation()"></div>`;
+            <div class="club-browse-expand" id="club-browse-expand-rank-${_clubEsc(c.id)}" style="display:none;" onclick="event.stopPropagation()"></div>`;
             }).join('');
     } catch(e) {
         console.warn('[DR Clubs] _loadClubRanking error', e);
@@ -397,7 +416,7 @@ async function searchClubs() {
         // click — a single misclick used to join you into a club with no
         // confirmation at all.
         out.innerHTML = clubs.map(c => `
-            <div class="club-card club-browse-card" id="club-browse-${_clubEsc(c.id)}" style="cursor:pointer;" onclick="_clubBrowseToggle('${_clubEsc(c.id)}')">
+            <div class="club-card club-browse-card" id="club-browse-browse-${_clubEsc(c.id)}" style="cursor:pointer;" onclick="_clubBrowseToggle('${_clubEsc(c.id)}','browse')">
                 <div class="club-card-header">
                     <div class="club-badge">${c.badge||'⚔️'}</div>
                     <div class="club-info">
@@ -407,7 +426,7 @@ async function searchClubs() {
                     <span class="club-tag">#${_clubEsc(c.tag)}</span>
                 </div>
                 ${c.description?`<div class="club-desc">${_clubEsc(c.description)}</div>`:''}
-                <div class="club-browse-expand" id="club-browse-expand-${_clubEsc(c.id)}" style="display:none;" onclick="event.stopPropagation()"></div>
+                <div class="club-browse-expand" id="club-browse-expand-browse-${_clubEsc(c.id)}" style="display:none;" onclick="event.stopPropagation()"></div>
             </div>`).join('');
     } catch(e) { console.warn('[DR Clubs] searchClubs error', e); }
 }
@@ -416,21 +435,29 @@ async function searchClubs() {
    Loads the president's name and member count (and — reserved for
    later — a spot for club strikes) the first time a card is opened,
    then shows a real Join button rather than joining on click. */
-const _clubBrowseExpanded = new Set();
-async function _clubBrowseToggle(clubId) {
-    // Reused by both the Browse tab and the Club Ranking tab — only the
-    // expand container is actually required (the outer card, if any,
-    // isn't referenced beyond this point).
-    const expandEl = document.getElementById('club-browse-expand-' + clubId);
+async function _clubBrowseToggle(clubId, ctx) {
+    ctx = ctx || 'browse';
+    // Reused by both the Browse tab and the Club Ranking tab — scoped by
+    // ctx since the same club can legitimately appear in both lists in
+    // the same session, and reusing one shared id per club would create
+    // duplicate DOM ids (one from each panel) — getElementById only ever
+    // returns the first match, so whichever panel wasn't first in the
+    // page would silently target the wrong (often hidden) element.
+    const expandEl = document.getElementById('club-browse-expand-' + ctx + '-' + clubId);
     if (!expandEl) return;
 
-    const isOpen = _clubBrowseExpanded.has(clubId);
+    // Check the actual DOM state directly, rather than a separately
+    // tracked open/closed Set — the list HTML gets regenerated fresh on
+    // every search keystroke and every tab revisit, which reset the DOM
+    // back to collapsed without ever clearing that tracking Set. Once out
+    // of sync, a click would see "already open" from stale tracking and
+    // just re-set display:none on something already none — clicking
+    // would silently do nothing at all.
+    const isOpen = expandEl.style.display === 'block';
     if (isOpen) {
-        _clubBrowseExpanded.delete(clubId);
         expandEl.style.display = 'none';
         return;
     }
-    _clubBrowseExpanded.add(clubId);
     expandEl.style.display = 'block';
     expandEl.innerHTML = '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:rgba(100,65,20,0.5);padding:8px 0;">Loading…</div>';
 
@@ -515,6 +542,7 @@ async function createClub() {
         await fsUpdate('profiles', _syncedUid, { club_id: clubId });
         _clubsState.myClub = club;
         _clubsState.myRole = 'owner';
+        _refreshClubQuestState();
         if (statusEl) statusEl.textContent = 'Club founded!';
         if (typeof playSfx === 'function') playSfx('clubCreate');
         setTimeout(_clubsCloseCreateModal, 1200);
@@ -557,6 +585,7 @@ async function leaveClub() {
         _clubsState.myClub = null;
         _clubsState.myRole = null;
         _renderMyClub(null);
+        _refreshClubQuestState();
     } catch(e) { console.warn('[DR Clubs] leaveClub error', e); }
 }
 

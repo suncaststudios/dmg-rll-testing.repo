@@ -3,35 +3,79 @@
    ─────────────────────────────────────────────────────────────────
    Structure
    ─────────
-   • 3 daily quests  — reset every day at midnight UTC
-   • 2 weekly quests — reset every Monday at midnight UTC
+   • 3 daily quests     — reset every day at midnight UTC
+   • 2 weekly quests    — reset every Monday at midnight UTC
+   • Unlimited quests   — no reset, no rotation. The whole pool is
+     always visible; each is much harder than a daily/weekly and pays
+     out a bigger flat reward once, permanently, whenever you clear it.
+   • 1 club quest       — a single shared goal the whole club chases
+     together, rotates weekly per-club. Every member's progress counts
+     toward the same bar; once the club clears it, every member can
+     claim their own reward independently.
+   • 1 community quest  — same idea as a club quest but for literally
+     everyone playing the game, rotates monthly.
 
    Rewards
    ───────
    • Daily quests give Gold (small amounts)
    • Weekly quests give Gold + XP bonus
+   • Unlimited quests give a large flat Gold + XP reward
+   • Club/Community quests give Gold + XP to every member who claims
 
    Storage
    ───────
-   • localStorage: dr_quest_state  — { dailyIds, weeklyIds, progress, claimed, seed_d, seed_w }
-   • Supabase:     synced on claim only (not on progress tick — saves reads/writes)
+   • localStorage: dr_quest_state — personal quests (daily/weekly/
+     unlimited) and progress. Always the source of truth for guests.
+   • Firebase (Firestore): quest_progress/{uid} mirrors that same
+     personal quest state for logged-in accounts, so daily/weekly/
+     unlimited progress carries over across devices instead of being
+     stuck to whichever one earned it. Pushed on every _questSave()
+     (debounced — see _scheduleQuestStateSync), and merged back in once
+     after login (_questSyncFromFirebase) by taking the higher progress
+     value and OR-ing claimed flags per quest, rather than blindly
+     trusting either side — see that function for why daily/weekly only
+     merge when the rotation period actually matches.
+   • Supabase (home region — window._supabaseHome, not the region-
+     switchable window._supabase): club_quests / club_quest_claims
+     tables hold the shared progress counter for club quests. This is
+     deliberately NOT Firestore — club members can be spread across
+     different matchmaking regions, but they all need to see and
+     contribute to the exact same counter, which only works if it lives
+     in one fixed place. Progress increments go through a Postgres
+     function (increment_club_quest_progress) rather than a client-side
+     read-then-write, since concurrent contributions from different
+     members landing close together would otherwise overwrite instead
+     of add.
+   • Firestore: community_quests/current holds the shared counter for
+     the single global community quest — same underlying idea as club
+     quests (many different players' clients all contributing to one
+     counter needs an atomic increment, here via fsIncrement in
+     firestore-db.js), just not region-sensitive the way club quests
+     are, so there's no reason it needs to live in the home-region
+     Supabase project specifically. Claim state per club/community
+     quest lives in its own tiny document/row per claiming account
+     rather than a growing array on the quest record itself — arrays
+     that grow with the whole userbase are a well-known anti-pattern
+     (document size limits, write contention as everyone fights to
+     append to the same record).
 
    Quest pool
    ──────────
    Each quest has:
      id       — unique string
-     type     — 'daily' | 'weekly'
+     type     — 'daily' | 'weekly' | 'unlimited' | 'club' | 'community'
      icon     — emoji
      name     — short title
      desc     — what you have to do
      goal     — target number
      stat     — which progress counter to watch
      gold     — gold reward on completion
-     xp       — XP reward (weekly only, 0 for daily)
+     xp       — XP reward
 
    Progress is tracked via _questTick(stat, amount) called from
    the same tracking hooks used by achievements (trackCardPlayed,
-   trackCrit, trackGameEnd, etc.)
+   trackCrit, trackGameEnd, etc.) — that one hook now also feeds
+   club/community quest contributions, not just personal ones.
 ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── Quest pool ─────────────────────────────────────────────────── */
@@ -71,6 +115,43 @@ const QUEST_POOL_WEEKLY = [
     { id:'w_play100',    icon:'🃏', name:'Card Factory',       desc:'Play 100 cards this week.',              goal:100,stat:'cards',      gold:120, xp:90  },
 ];
 
+/* No rotation — every entry here is always visible and available at
+   once. Much bigger goals, much bigger flat payouts, and (unlike daily/
+   weekly) clearing one doesn't cost you a rotation slot — you can work
+   on all of them in parallel indefinitely. */
+const QUEST_POOL_UNLIMITED = [
+    { id:'u_win100',     icon:'👑', name:'Living Legend',      desc:'Win 100 battles, ever.',                  goal:100,  stat:'wins',       gold:600,  xp:500 },
+    { id:'u_dmg10000',   icon:'☄️', name:'Force of Nature',    desc:'Deal 10,000 total damage, ever.',         goal:10000,stat:'damage',     gold:600,  xp:500 },
+    { id:'u_crit200',    icon:'🎲', name:'Blessed by the Dice',desc:'Roll 200 Crits, ever.',                   goal:200,  stat:'crits',      gold:450,  xp:350 },
+    { id:'u_chain25',    icon:'⛓️', name:'Chainbreaker',       desc:'Land 25 triple-crit chains, ever.',       goal:25,   stat:'chains',     gold:500,  xp:400 },
+    { id:'u_heal2000',   icon:'🧪', name:'Field Medic',        desc:'Heal 2,000 total HP, ever.',              goal:2000, stat:'healed',     gold:450,  xp:350 },
+    { id:'u_play1000',   icon:'🎴', name:'Card Hoarder',       desc:'Play 1,000 cards, ever.',                 goal:1000, stat:'cards',      gold:400,  xp:300 },
+    { id:'u_games250',   icon:'🎮', name:'No Life',            desc:'Play 250 games, ever.',                   goal:250,  stat:'games',      gold:500,  xp:400 },
+    { id:'u_survive25',  icon:'💀', name:'Cheated Death',      desc:'Win 25 games after dropping below 20 HP.',goal:25,   stat:'low_hp_wins',gold:550,  xp:450 },
+];
+
+/* One active quest per club at a time, rotating weekly — much bigger
+   goals than a personal weekly, sized for a whole roster's combined
+   effort rather than one person's. Every club member's own play
+   contributes to the same shared counter (see _questTick below). */
+const CLUB_QUEST_POOL = [
+    { id:'c_wins50',     icon:'🏆', name:'United Front',       desc:'Club wins 50 battles this week.',        goal:50,   stat:'wins',       gold:200, xp:150 },
+    { id:'c_dmg5000',    icon:'💥', name:'Combined Arms',      desc:'Club deals 5,000 total damage this week.',goal:5000,stat:'damage',     gold:220, xp:170 },
+    { id:'c_crit150',    icon:'🎲', name:'Lucky Guild',        desc:'Club rolls 150 Crits this week.',        goal:150,  stat:'crits',      gold:200, xp:150 },
+    { id:'c_games100',   icon:'🎮', name:'All Hands',          desc:'Club plays 100 games this week.',        goal:100,  stat:'games',      gold:180, xp:130 },
+    { id:'c_heal1000',   icon:'🧪', name:'Guild Infirmary',    desc:'Club heals 1,000 total HP this week.',   goal:1000, stat:'healed',     gold:190, xp:140 },
+];
+
+/* Same idea, but one single global quest for every player, rotating
+   monthly. Goal sizes here are intentionally round, tunable numbers —
+   there's no way to know actual playerbase size in advance, so these
+   are a starting point to adjust once real usage data exists. */
+const COMMUNITY_QUEST_POOL = [
+    { id:'m_wins',   icon:'🌍', name:'Global Offensive', desc:'The community wins 5,000 battles this month.',    goal:5000,   stat:'wins',   gold:150, xp:120 },
+    { id:'m_damage', icon:'🌋', name:'World Ender',      desc:'The community deals 500,000 total damage this month.', goal:500000, stat:'damage', gold:150, xp:120 },
+    { id:'m_games',  icon:'🌐', name:'Everyone Plays',   desc:'The community plays 10,000 games this month.',    goal:10000,  stat:'games',  gold:130, xp:100 },
+];
+
 /* ─── State ───────────────────────────────────────────────────────── */
 const QUEST_KEY = 'dr_quest_state';
 let _questState = null;
@@ -88,6 +169,11 @@ function _questWeekKey() {
 
 function _questSeed(str) {
     return str.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) & 0xffffffff, 0);
+}
+
+function _questMonthKey() {
+    const d = new Date();
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function _questSeededPick(pool, count, seed) {
@@ -132,18 +218,84 @@ function _questLoad() {
         });
     }
 
+    // Weekly, but never unlimited — unlimited quests have no rotation at
+    // all, so they just need their prog/claimed keys to exist once, ever.
+    if (_questState._unlimitedInit !== true) {
+        _questState._unlimitedInit = true;
+        QUEST_POOL_UNLIMITED.forEach(q => {
+            if (_questState['prog_' + q.id]    === undefined) _questState['prog_' + q.id]    = 0;
+            if (_questState['claimed_' + q.id] === undefined) _questState['claimed_' + q.id] = false;
+        });
+    }
+
     _questSave();
 }
 
 function _questSave() {
     try { localStorage.setItem(QUEST_KEY, JSON.stringify(_questState)); } catch(e) {}
+    // Also push to Firebase, debounced — daily/weekly/unlimited quest
+    // progress for the logged-in account, so it carries over across
+    // devices/browsers instead of being stuck to whichever one earned
+    // it. Guests stay localStorage-only, same as everything else that
+    // needs an account to sync at all.
+    if (typeof _syncedUid !== 'undefined' && _syncedUid) _scheduleQuestStateSync();
 }
 
-/* ─── Get active quests ───────────────────────────────────────────── */
+let _questStateSyncTimer = null;
+function _scheduleQuestStateSync() {
+    clearTimeout(_questStateSyncTimer);
+    _questStateSyncTimer = setTimeout(_pushQuestStateToFirebase, 1500);
+}
+async function _pushQuestStateToFirebase() {
+    if (typeof _syncedUid === 'undefined' || !_syncedUid || typeof fsSet !== 'function') return;
+    try { await fsSet('quest_progress', _syncedUid, { state: _questState }); }
+    catch(e) { console.warn('[DR Quests] state sync error', e); }
+}
+
+/* ── One-time catch-up merge from Firebase, run after login ──
+   _questLoad() itself stays synchronous (many call sites — _questTick,
+   _questGetActive, claimQuest — call it without awaiting, and making
+   it async would mean all of those risk running against incomplete
+   state while a network fetch is still in flight). Instead, this runs
+   once after login resolves, fetches whatever's saved server-side, and
+   merges it into whatever's already loaded from localStorage — taking
+   the higher progress value and OR-ing claimed flags per quest, rather
+   than blindly overwriting either side, so switching devices mid-quest
+   can't lose progress made on either one. Daily/weekly progress only
+   merges if the server's rotation key matches the current period (an
+   old day/week's numbers shouldn't bleed into a freshly-rotated set);
+   unlimited quests never rotate, so they always merge safely regardless
+   of when the server copy was last written. */
+async function _questSyncFromFirebase() {
+    if (typeof _syncedUid === 'undefined' || !_syncedUid || typeof fsGet !== 'function') return;
+    if (!_questState) _questLoad();
+    try {
+        const server = await fsGet('quest_progress', _syncedUid);
+        const s = server?.state;
+        if (!s) return;
+
+        const sameDay  = s.seed_d === _questState.seed_d;
+        const sameWeek = s.seed_w === _questState.seed_w;
+        const mergeIds = [
+            ...(sameDay  ? (_questState.dailyIds  || []) : []),
+            ...(sameWeek ? (_questState.weeklyIds || []) : []),
+            ...QUEST_POOL_UNLIMITED.map(q => q.id),
+        ];
+        mergeIds.forEach(id => {
+            const pKey = 'prog_' + id, cKey = 'claimed_' + id;
+            _questState[pKey] = Math.max(_questState[pKey] || 0, s[pKey] || 0);
+            _questState[cKey] = !!(_questState[cKey] || s[cKey]);
+        });
+        _questSave();
+        _questRenderIfOpen();
+    } catch(e) { console.warn('[DR Quests] state merge error', e); }
+}
+
+/* ─── Get active quests (personal: daily/weekly/unlimited) ─────────── */
 function _questGetActive() {
     if (!_questState) _questLoad();
-    const all = [...QUEST_POOL_DAILY, ...QUEST_POOL_WEEKLY];
-    const ids = [...(_questState.dailyIds || []), ...(_questState.weeklyIds || [])];
+    const all = [...QUEST_POOL_DAILY, ...QUEST_POOL_WEEKLY, ...QUEST_POOL_UNLIMITED];
+    const ids = [...(_questState.dailyIds || []), ...(_questState.weeklyIds || []), ...QUEST_POOL_UNLIMITED.map(q => q.id)];
     return ids.map(id => {
         const def = all.find(q => q.id === id);
         if (!def) return null;
@@ -151,7 +303,7 @@ function _questGetActive() {
             ...def,
             progress: _questState['prog_' + id] || 0,
             claimed:  _questState['claimed_' + id] || false,
-            type:     id.startsWith('w_') ? 'weekly' : 'daily',
+            type:     id.startsWith('w_') ? 'weekly' : id.startsWith('u_') ? 'unlimited' : 'daily',
         };
     }).filter(Boolean);
 }
@@ -177,6 +329,15 @@ function _questTick(stat, amount = 1) {
 
     _questSave();
     if (anyComplete) _questRenderIfOpen();
+
+    // Also feed club/community quests, if the currently-rotated one for
+    // either happens to watch this same stat. These aren't written to
+    // Firestore per-tick (that would mean a network write every single
+    // card played) — contributions are accumulated locally and flushed
+    // on a short debounce instead, same pattern as the XP/speedrun sync
+    // debouncing elsewhere in the codebase.
+    if (_clubQuestState?.def?.stat === stat)     { _pendingClubContribution     += amount; _scheduleQuestContributionFlush(); }
+    if (_communityQuestState?.def?.stat === stat){ _pendingCommunityContribution += amount; _scheduleQuestContributionFlush(); }
 }
 
 /* ─── Completion notification ─────────────────────────────────────── */
@@ -200,7 +361,8 @@ function _questNotify(quest) {
         `;
         document.body.appendChild(toast);
     }
-    const typeLabel = quest.type === 'weekly' ? 'Weekly Quest' : 'Daily Quest';
+    const typeLabels = { weekly:'Weekly Quest', unlimited:'Unlimited Quest', club:'Club Quest', community:'Community Quest' };
+    const typeLabel = typeLabels[quest.type] || 'Daily Quest';
     toast.innerHTML = `
         <span style="font-size:22px;">${quest.icon}</span>
         <div>
@@ -217,7 +379,7 @@ function _questNotify(quest) {
 /* ─── Claim reward ────────────────────────────────────────────────── */
 function claimQuest(questId) {
     if (!_questState) _questLoad();
-    const all   = [...QUEST_POOL_DAILY, ...QUEST_POOL_WEEKLY];
+    const all   = [...QUEST_POOL_DAILY, ...QUEST_POOL_WEEKLY, ...QUEST_POOL_UNLIMITED];
     const def   = all.find(q => q.id === questId);
     if (!def) return;
     const prog  = _questState['prog_' + questId] || 0;
@@ -231,17 +393,199 @@ function claimQuest(questId) {
     if (typeof shopAwardGold === 'function') shopAwardGold(def.gold);
     if (typeof _showGoldToast === 'function') _showGoldToast(`+${def.gold} 🪙 Quest: ${def.name}`);
 
-    // Award XP (weekly only)
+    // Award XP
     if (def.xp > 0 && typeof awardXP === 'function') {
         setTimeout(() => awardXP(def.xp, 'Quest: ' + def.name), 600);
     }
 
-    // Quest completions are local-only — no server involved (quests are
-    // personal, session-scoped progression, not something that needs to
-    // sync across devices or be queried by anyone else). Everything
-    // already lives in localStorage via _questSave() above.
+    // _questSave() above already handles both localStorage (always) and,
+    // for a logged-in account, a debounced push to Firebase — see
+    // _scheduleQuestStateSync near the top of the file. No separate sync
+    // call needed here.
     if (typeof _recordChallengeCompleted === 'function') _recordChallengeCompleted();
 
+    _questRenderIfOpen();
+    playSfx('questComplete');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CLUB & COMMUNITY QUESTS
+   ─────────────────────────────────────────────────────────────────
+   Shared, collaborative progress — unlike daily/weekly/unlimited quests
+   above, these can't be tracked purely in localStorage, since many
+   different players' clients are all contributing to the same counter.
+   Firestore's atomic increment (fsIncrement, in firestore-db.js) is
+   what makes that safe: it adds to whatever the current server value
+   is at the moment the write lands, rather than the client computing
+   "current + my contribution" from a possibly-stale local read and
+   overwriting anyone else's contribution that landed in between.
+═══════════════════════════════════════════════════════════════════ */
+
+let _clubQuestState      = null; // { def, doc } for the active club quest, or null if not in a club
+let _communityQuestState = null; // { def, doc } for the active community quest
+
+let _pendingClubContribution      = 0;
+let _pendingCommunityContribution = 0;
+let _questContributionFlushTimer  = null;
+
+function _scheduleQuestContributionFlush() {
+    clearTimeout(_questContributionFlushTimer);
+    _questContributionFlushTimer = setTimeout(_flushQuestContributions, 4000);
+}
+
+async function _flushQuestContributions() {
+    const clubAmt = _pendingClubContribution;
+    const comAmt  = _pendingCommunityContribution;
+    _pendingClubContribution      = 0;
+    _pendingCommunityContribution = 0;
+
+    if (clubAmt > 0 && _clubQuestState?.doc) {
+        // Club quests live in Supabase (home region), not Firestore — see
+        // the increment_club_quest_progress() Postgres function, which is
+        // the SQL-side equivalent of Firestore's atomic increment: it
+        // applies `progress = progress + amount` against whatever the
+        // current row value is at that moment, so two members'
+        // contributions landing close together both count.
+        const sb = window._supabaseHome;
+        if (sb) {
+            const { error } = await sb.rpc('increment_club_quest_progress', {
+                p_club_id: _clubQuestState.doc.id, p_amount: clubAmt,
+            });
+            if (!error) {
+                _clubQuestState.doc.progress = (_clubQuestState.doc.progress || 0) + clubAmt;
+                _questCheckClubComplete();
+            } else {
+                _pendingClubContribution += clubAmt; // retry on next flush rather than losing it
+            }
+        } else {
+            _pendingClubContribution += clubAmt;
+        }
+    }
+    if (comAmt > 0 && _communityQuestState?.doc) {
+        const { error } = await fsIncrement('community_quests', 'current', 'progress', comAmt);
+        if (!error) {
+            _communityQuestState.doc.progress = (_communityQuestState.doc.progress || 0) + comAmt;
+            _questCheckCommunityComplete();
+        } else {
+            _pendingCommunityContribution += comAmt;
+        }
+    }
+    _questRenderIfOpen();
+}
+
+function _questCheckClubComplete() {
+    const s = _clubQuestState;
+    if (s?.doc && !s._notified && s.doc.progress >= s.def.goal) {
+        s._notified = true;
+        _questNotify({ ...s.def, type: 'club' });
+    }
+}
+function _questCheckCommunityComplete() {
+    const s = _communityQuestState;
+    if (s?.doc && !s._notified && s.doc.progress >= s.def.goal) {
+        s._notified = true;
+        _questNotify({ ...s.def, type: 'community' });
+    }
+}
+
+/* ── Load/rotate the club's active quest ──
+   Supabase (home region) — club_quests table, one row per club, keyed
+   by club_id (the club's Firestore doc id, kept as plain text here
+   since club identity itself still lives in Firebase; only the quest
+   progress counter is Supabase). Overwritten (not incremented) whenever
+   the week changes, since rotating is a reset, not a bump. Uses
+   window._supabaseHome specifically, not the region-switchable
+   window._supabase — a club's members can be spread across different
+   matchmaking regions, but they all need to see and contribute to the
+   exact same counter, which only works if it lives in one fixed place
+   regardless of anyone's individual region setting. */
+async function _questLoadClubQuest() {
+    _clubQuestState = null;
+    if (typeof _clubsState === 'undefined' || !_clubsState?.myClub) { _questRenderIfOpen(); return; }
+    const sb = window._supabaseHome;
+    if (!sb) { _questRenderIfOpen(); return; }
+    const clubId = _clubsState.myClub.id;
+    const week = _questWeekKey();
+    try {
+        const { data: existing } = await sb.from('club_quests').select('*').eq('club_id', clubId).maybeSingle();
+        let doc = existing;
+        if (!doc || doc.week_key !== week) {
+            const questId = _questSeededPick(CLUB_QUEST_POOL, 1, _questSeed(clubId + '_' + week))[0];
+            doc = { club_id: clubId, quest_id: questId, week_key: week, progress: 0 };
+            await sb.from('club_quests').upsert(doc, { onConflict: 'club_id' });
+        }
+        const def = CLUB_QUEST_POOL.find(q => q.id === doc.quest_id);
+        if (!def) { _questRenderIfOpen(); return; }
+        let claimed = false;
+        if (_syncedUid) {
+            const { data: claim } = await sb.from('club_quest_claims')
+                .select('uid').eq('club_id', clubId).eq('week_key', doc.week_key).eq('uid', _syncedUid).maybeSingle();
+            claimed = !!claim;
+        }
+        // Normalize field names to match the rest of this module's
+        // {def, doc:{id, progress}} shape (doc.id instead of club_id,
+        // since that's what the render/flush code above already expects).
+        _clubQuestState = { def, doc: { id: doc.club_id, questId: doc.quest_id, weekKey: doc.week_key, progress: doc.progress || 0 }, claimed, _notified: (doc.progress||0) >= def.goal };
+    } catch(e) { console.warn('[DR Quests] club quest load error', e); }
+    _questRenderIfOpen();
+}
+
+/* ── Load/rotate the community's active quest (stays on Firestore) ── */
+async function _questLoadCommunityQuest() {
+    _communityQuestState = null;
+    const period = _questMonthKey();
+    try {
+        let doc = await fsGet('community_quests', 'current');
+        if (!doc || doc.periodKey !== period) {
+            const questId = _questSeededPick(COMMUNITY_QUEST_POOL, 1, _questSeed(period))[0];
+            doc = { id: 'current', questId, periodKey: period, progress: 0 };
+            await fsSet('community_quests', 'current', { questId, periodKey: period, progress: 0 });
+        }
+        const def = COMMUNITY_QUEST_POOL.find(q => q.id === doc.questId);
+        if (!def) { _questRenderIfOpen(); return; }
+        const claimDoc = _syncedUid ? await fsGet('community_quests', 'current__claims__' + _syncedUid) : null;
+        _communityQuestState = { def, doc, claimed: !!claimDoc, _notified: (doc.progress||0) >= def.goal };
+    } catch(e) { console.warn('[DR Quests] community quest load error', e); }
+    _questRenderIfOpen();
+}
+
+/* ── Claim a completed club quest (Supabase) ──
+   club_quest_claims has a composite primary key (club_id, week_key,
+   uid), so a duplicate claim attempt just fails the insert outright —
+   no separate existence check needed for correctness, though we still
+   check `claimed` client-side first to avoid firing a pointless request. */
+async function claimClubQuest() {
+    const s = _clubQuestState;
+    if (!s || !_syncedUid || s.claimed || (s.doc.progress||0) < s.def.goal) return;
+    const sb = window._supabaseHome;
+    if (!sb) return;
+    const { error } = await sb.from('club_quest_claims').insert({
+        club_id: s.doc.id, week_key: s.doc.weekKey, uid: _syncedUid,
+    });
+    if (error) return;
+    s.claimed = true;
+    if (typeof shopAwardGold === 'function') shopAwardGold(s.def.gold);
+    if (typeof _showGoldToast === 'function') _showGoldToast(`+${s.def.gold} 🪙 Club Quest: ${s.def.name}`);
+    if (s.def.xp > 0 && typeof awardXP === 'function') setTimeout(() => awardXP(s.def.xp, 'Club Quest: ' + s.def.name), 600);
+    _questRenderIfOpen();
+    playSfx('questComplete');
+}
+
+/* ── Claim a completed community quest (Firestore) ──
+   Claim state tracked via a small dedicated doc per claiming account
+   (see the "__claims__" doc id convention) rather than one growing
+   array on the quest doc, since that array would otherwise need to
+   hold every contributing player's uid forever and become a write-
+   contention bottleneck as more people try to append to it at once. */
+async function claimCommunityQuest() {
+    const s = _communityQuestState;
+    if (!s || !_syncedUid || s.claimed || (s.doc.progress||0) < s.def.goal) return;
+    const { error } = await fsSet('community_quests', 'current__claims__' + _syncedUid, { uid: _syncedUid, claimedAt: new Date().toISOString() });
+    if (error) return;
+    s.claimed = true;
+    if (typeof shopAwardGold === 'function') shopAwardGold(s.def.gold);
+    if (typeof _showGoldToast === 'function') _showGoldToast(`+${s.def.gold} 🪙 Community Quest: ${s.def.name}`);
+    if (s.def.xp > 0 && typeof awardXP === 'function') setTimeout(() => awardXP(s.def.xp, 'Community Quest: ' + s.def.name), 600);
     _questRenderIfOpen();
     playSfx('questComplete');
 }
@@ -304,6 +648,8 @@ function openQuests() {
     playSfx('menuClick');
     toggle('menu-quests', true);
     _questRender();
+    _questLoadClubQuest();
+    _questLoadCommunityQuest();
 }
 
 /* ─── Render ──────────────────────────────────────────────────────── */
@@ -314,12 +660,89 @@ function _questRenderIfOpen() {
 
 function _questRender() {
     const quests = _questGetActive();
-    const daily  = quests.filter(q => q.type === 'daily');
-    const weekly = quests.filter(q => q.type === 'weekly');
+    const daily     = quests.filter(q => q.type === 'daily');
+    const weekly    = quests.filter(q => q.type === 'weekly');
+    const unlimited = quests.filter(q => q.type === 'unlimited');
 
-    _questRenderGroup('quest-daily-list',  daily);
-    _questRenderGroup('quest-weekly-list', weekly);
+    _questRenderGroup('quest-daily-list',     daily);
+    _questRenderGroup('quest-weekly-list',    weekly);
+    _questRenderGroup('quest-unlimited-list', unlimited);
+    _questRenderClub();
+    _questRenderCommunity();
     _questUpdateTimers();
+}
+
+/* ── Club quest section ── */
+function _questRenderClub() {
+    const section = document.getElementById('quest-club-section');
+    const list    = document.getElementById('quest-club-list');
+    if (!section || !list) return;
+
+    if (typeof _clubsState === 'undefined' || !_clubsState?.myClub) {
+        section.style.display = 'none';
+        return;
+    }
+    section.style.display = '';
+    const s = _clubQuestState;
+    if (!s) { list.innerHTML = `<div class="quest-loading-note">Loading…</div>`; return; }
+
+    const progress = s.doc.progress || 0;
+    const pct  = Math.min(100, Math.round((progress / s.def.goal) * 100));
+    const done = progress >= s.def.goal;
+    list.innerHTML = `
+        <div class="quest-card ${done ? 'quest-done' : ''} ${s.claimed ? 'quest-claimed' : ''}">
+            <div class="quest-icon">${s.def.icon}</div>
+            <div class="quest-body">
+                <div class="quest-name">${s.def.name}</div>
+                <div class="quest-desc">${s.def.desc}</div>
+                <div class="quest-bar-wrap"><div class="quest-bar-fill" style="width:${pct}%;background:#4090c0;"></div></div>
+                <div class="quest-progress-text">${progress.toLocaleString()} / ${s.def.goal.toLocaleString()} (whole club)</div>
+            </div>
+            <div class="quest-reward">
+                <div class="quest-gold">🪙 ${s.def.gold}</div>
+                ${s.def.xp ? `<div class="quest-xp">+${s.def.xp} XP</div>` : ''}
+                ${s.claimed
+                    ? `<div class="quest-claimed-badge">✓ Claimed</div>`
+                    : done
+                        ? `<button class="quest-claim-btn" onclick="claimClubQuest()">Claim</button>`
+                        : `<div class="quest-pct">${pct}%</div>`
+                }
+            </div>
+        </div>`;
+}
+
+/* ── Community quest section ── */
+function _questRenderCommunity() {
+    const list = document.getElementById('quest-community-list');
+    if (!list) return;
+    const s = _communityQuestState;
+    if (!s) { list.innerHTML = `<div class="quest-loading-note">Loading…</div>`; return; }
+
+    const progress = s.doc.progress || 0;
+    const pct  = Math.min(100, Math.round((progress / s.def.goal) * 100));
+    const done = progress >= s.def.goal;
+    list.innerHTML = `
+        <div class="quest-card ${done ? 'quest-done' : ''} ${s.claimed ? 'quest-claimed' : ''}">
+            <div class="quest-icon">${s.def.icon}</div>
+            <div class="quest-body">
+                <div class="quest-name">${s.def.name}</div>
+                <div class="quest-desc">${s.def.desc}</div>
+                <div class="quest-bar-wrap"><div class="quest-bar-fill" style="width:${pct}%;background:#c04090;"></div></div>
+                <div class="quest-progress-text">${progress.toLocaleString()} / ${s.def.goal.toLocaleString()} (everyone)</div>
+            </div>
+            <div class="quest-reward">
+                <div class="quest-gold">🪙 ${s.def.gold}</div>
+                ${s.def.xp ? `<div class="quest-xp">+${s.def.xp} XP</div>` : ''}
+                ${!_syncedUid
+                    ? `<div class="quest-pct" style="font-size:8px;">Sign in to claim</div>`
+                    : s.claimed
+                        ? `<div class="quest-claimed-badge">✓ Claimed</div>`
+                        : done
+                            ? `<button class="quest-claim-btn" onclick="claimCommunityQuest()">Claim</button>`
+                            : `<div class="quest-pct">${pct}%</div>`
+                }
+            </div>
+        </div>`;
 }
 
 function _questRenderGroup(containerId, quests) {
@@ -328,7 +751,7 @@ function _questRenderGroup(containerId, quests) {
     el.innerHTML = quests.map(q => {
         const pct  = Math.min(100, Math.round((q.progress / q.goal) * 100));
         const done = q.progress >= q.goal;
-        const barColor = done ? '#6a9a20' : (q.type === 'weekly' ? '#8040c0' : '#c8a020');
+        const barColor = done ? '#6a9a20' : (q.type === 'weekly' ? '#8040c0' : q.type === 'unlimited' ? '#c04040' : '#c8a020');
         return `
         <div class="quest-card ${done ? 'quest-done' : ''} ${q.claimed ? 'quest-claimed' : ''}">
             <div class="quest-icon">${q.icon}</div>
@@ -338,7 +761,7 @@ function _questRenderGroup(containerId, quests) {
                 <div class="quest-bar-wrap">
                     <div class="quest-bar-fill" style="width:${pct}%;background:${barColor};"></div>
                 </div>
-                <div class="quest-progress-text">${q.progress} / ${q.goal}</div>
+                <div class="quest-progress-text">${q.progress.toLocaleString()} / ${q.goal.toLocaleString()}</div>
             </div>
             <div class="quest-reward">
                 <div class="quest-gold">🪙 ${q.gold}</div>
@@ -377,6 +800,20 @@ function _questUpdateTimers() {
 /* ─── Init ────────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
     _questLoad();
+    // Club/community quest state has to load proactively here, not just
+    // when the Quests screen happens to be opened — _questTick() (called
+    // from live gameplay tracking hooks) checks _clubQuestState/
+    // _communityQuestState to decide whether to accumulate a
+    // contribution. If those stayed null until the player opened the
+    // Quests screen, anyone who never opened it during a session would
+    // have every one of their club/community contributions silently
+    // dropped despite actually playing.
+    _questLoadCommunityQuest(); // doesn't depend on auth/club state
+    // Club quest depends on knowing which club (if any) the player is
+    // in, which isn't settled yet this early — see the matching call in
+    // clubs.js's _loadMyClub(), which re-fires this every time club
+    // membership is confirmed or changes (login, join, leave, disband).
+
     // Update timers every minute while screen is open
     setInterval(() => { if (document.getElementById('menu-quests')?.style.display !== 'none') _questUpdateTimers(); }, 60000);
 });

@@ -707,6 +707,35 @@
                     <button class="settings-opt-btn" data-val="invite" onclick="_clubSettingsSelectVisibility(this)">Invite-Only</button>
                 </div>
                 <div class="settings-hint" style="margin-bottom:14px; display:block;">Invite-only clubs don't show up in general Browse results — only an exact tag or name search will find them, so you can still share it directly.</div>
+
+                <div class="clubs-form-label" style="margin-bottom:6px;">Moderation Limits</div>
+                <div style="font-size:9px;color:rgba(200,160,90,0.65);line-height:1.5;margin-bottom:10px;">Caps how long Officers/VPs can mute someone, and how long a ban can last before it must be permanent. As president, you're never limited by these.</div>
+                <div style="display:flex; gap:10px; margin-bottom:14px;">
+                    <div style="flex:1;">
+                        <label style="font-size:8px;letter-spacing:1px;text-transform:uppercase;color:#8a6535;display:block;margin-bottom:4px;">Max Mute (minutes)</label>
+                        <input class="clubs-search-input" id="cs-max-mute-input" type="number" min="1" max="10080" value="1440" />
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:8px;letter-spacing:1px;text-transform:uppercase;color:#8a6535;display:block;margin-bottom:4px;">Max Ban (hours, blank = allow permanent)</label>
+                        <input class="clubs-search-input" id="cs-max-ban-input" type="number" min="1" placeholder="Permanent allowed" />
+                    </div>
+                </div>
+
+                <div id="cs-invite-code-block" style="display:none; margin-bottom:14px; padding:12px; border:1px solid rgba(100,65,20,0.3); border-radius:6px; background:rgba(0,0,0,0.2);">
+                    <div class="clubs-form-label" style="margin-bottom:6px;">Invite Code</div>
+                    <div style="font-size:9px;color:rgba(200,160,90,0.65);line-height:1.5;margin-bottom:10px;">Share this code with people you want in the club — they can enter it from Clubs → Browse → Join by Code, even though your club won't show up in search.</div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <div id="cs-invite-code-val" style="flex:1; font-family:'Cinzel',serif; font-size:16px; letter-spacing:4px; color:#e8c870; background:rgba(0,0,0,0.35); border:1px solid rgba(100,65,20,0.4); border-radius:4px; padding:8px 10px; text-align:center;">——————</div>
+                        <button class="clubs-search-btn" style="padding:8px 12px;" onclick="_clubCopyInviteCode()">Copy</button>
+                    </div>
+                    <button class="clubs-search-btn" style="width:100%;padding:8px 0;margin-top:8px;background:rgba(20,10,2,0.7);" onclick="_clubRegenInviteCode()">↻ Generate New Code</button>
+                    <div id="cs-invite-code-status" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#6b4f2a;min-height:14px;margin-top:6px;text-align:center;"></div>
+                </div>
+
+                <div class="clubs-form-label" style="margin-bottom:6px;">Club Cosmetics</div>
+                <div style="font-size:9px;color:rgba(200,160,90,0.65);line-height:1.5;margin-bottom:10px;">Applies a crest or banner you personally own to the whole club. Buy crests/banners from the Shop's Cosmetics tab first.</div>
+                <div id="cs-club-cosmetics-list" style="margin-bottom:14px;"></div>
+
                 <button class="clubs-search-btn" style="width:100%;padding:10px 0;" onclick="_clubSettingsSave()">✦ Save Changes</button>
                 <div id="cs-edit-status" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#6b4f2a;min-height:14px;margin-top:8px;text-align:center;"></div>
             </div>
@@ -747,6 +776,15 @@
             <div class="clubs-search-row">
                 <input class="clubs-search-input" id="clubs-search-input" type="text" placeholder="Search by name or tag…" oninput="searchClubs()" />
                 <button class="clubs-search-btn" onclick="searchClubs()">Search</button>
+            </div>
+            <button class="clubs-search-btn" id="clubs-joincode-toggle-btn" style="width:100%;padding:8px 0;margin-bottom:10px;background:rgba(20,10,2,0.7);" onclick="_clubJoinCodeToggle()">🔑 Join by Code</button>
+            <div id="clubs-joincode-block" style="display:none; margin-bottom:12px; padding:10px; border:1px solid rgba(100,65,20,0.3); border-radius:6px; background:rgba(0,0,0,0.2);">
+                <div style="font-size:9px;color:rgba(200,160,90,0.65);line-height:1.5;margin-bottom:8px;">Got an invite code from a club president? Enter it here to join their invite-only club directly.</div>
+                <div style="display:flex; gap:8px;">
+                    <input class="clubs-search-input" id="clubs-joincode-input" type="text" maxlength="6" placeholder="CODE" style="text-transform:uppercase; letter-spacing:2px;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') _clubJoinByCode()" />
+                    <button class="clubs-search-btn" onclick="_clubJoinByCode()">Join</button>
+                </div>
+                <div id="clubs-joincode-status" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#6b4f2a;min-height:14px;margin-top:6px;text-align:center;"></div>
             </div>
             <div id="clubs-browse-list">
                 <div class="clubs-auth-notice" style="padding-top:16px;">
@@ -1085,6 +1123,9 @@
             <button class="shop-tab" onclick="switchShopTab('history')"   data-tab="history">
                 <span class="shop-tab-icon">📜</span> Purchase History
             </button>
+            <button class="shop-tab" onclick="switchShopTab('inventory')" data-tab="inventory">
+                <span class="shop-tab-icon">🎒</span> Inventory & Gifting
+            </button>
         </div>
 
         <!-- ══ FEATURED ══ -->
@@ -1107,10 +1148,11 @@
         <div class="shop-panel" id="shop-panel-cosmetics">
             <div class="shop-filter-bar">
                 <button class="shop-filter active" onclick="switchShopSub('all',this)">All</button>
-                <button class="shop-filter" onclick="switchShopSub('hats',this)">🎩 Hats</button>
-                <button class="shop-filter" onclick="switchShopSub('auras',this)">✨ Auras</button>
-                <button class="shop-filter" onclick="switchShopSub('cards',this)">🃏 Cards</button>
-                <button class="shop-filter" onclick="switchShopSub('fonts',this)">🔤 Fonts</button>
+                <button class="shop-filter" onclick="switchShopSub('cardbacks',this)">🂠 Card Backs</button>
+                <button class="shop-filter" onclick="switchShopSub('titles',this)">🏷 Titles</button>
+                <button class="shop-filter" onclick="switchShopSub('frames',this)">🖼 Frames</button>
+                <button class="shop-filter" onclick="switchShopSub('crests',this)">🛡 Club Crests</button>
+                <button class="shop-filter" onclick="switchShopSub('banners',this)">🎏 Club Banners</button>
             </div>
             <div class="shop-grid" id="shop-grid-cosmetics"></div>
             <div class="shop-empty-state" id="shop-empty-cosmetics" style="display:none;">
@@ -1166,6 +1208,26 @@
             </div>
         </div>
 
+        <div class="shop-panel" id="shop-panel-inventory">
+            <div class="shop-section-label">🎒 Your Cosmetics</div>
+            <div class="shop-section-sub">Sell an item back for 70% of its price (50% if it's a gifted item), or gift it to another player.</div>
+            <div id="shop-inventory-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;"></div>
+            <div class="shop-empty-state" id="shop-inventory-empty">
+                <div class="shop-empty-icon">🎒</div>
+                <div class="shop-empty-title">Nothing Owned Yet</div>
+                <div class="shop-empty-sub">Buy something from Featured or Cosmetics to see it here.</div>
+            </div>
+
+            <div class="shop-rule"></div>
+            <div class="shop-section-label">🎁 Redeem a Gift Code</div>
+            <div class="shop-section-sub">Got a code from another player? Enter it below to claim the item.</div>
+            <div style="display:flex; gap:8px; max-width:340px;">
+                <input class="clubs-search-input" id="shop-gift-redeem-input" type="text" maxlength="12" placeholder="GIFT-CODE" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') _shopRedeemGiftCode()" />
+                <button class="shop-btn shop-btn-gold" onclick="_shopRedeemGiftCode()">Redeem</button>
+            </div>
+            <div id="shop-gift-redeem-status" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#6b4f2a;min-height:14px;margin-top:6px;"></div>
+        </div>
+
     </div><!-- end shop-wrap -->
     </div><!-- end menu-shop -->
 
@@ -1193,7 +1255,7 @@
                     <span class="shop-section-label" style="flex:1;">⚡ Daily Quests</span>
                     <span id="quest-daily-timer" style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;"></span>
                 </div>
-                <div id="quest-daily-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+                <div id="quest-daily-list" style="display:flex;flex-flow:row wrap;gap:10px;margin-top:10px;"></div>
             </div>
 
             <!-- Weekly quests -->
@@ -1202,7 +1264,7 @@
                     <span class="shop-section-label" style="flex:1;">🗓 Weekly Quests</span>
                     <span id="quest-weekly-timer" style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;"></span>
                 </div>
-                <div id="quest-weekly-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+                <div id="quest-weekly-list" style="display:flex;flex-flow:row wrap;gap:10px;margin-top:10px;"></div>
             </div>
 
             <!-- Unlimited quests -->
@@ -1211,7 +1273,7 @@
                     <span class="shop-section-label" style="flex:1;">♾️ Unlimited Quests</span>
                     <span style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;">Never resets</span>
                 </div>
-                <div id="quest-unlimited-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+                <div id="quest-unlimited-list" style="display:flex;flex-flow:row wrap;gap:10px;margin-top:10px;"></div>
             </div>
 
             <!-- Club quest (only shown while in a club) -->
@@ -1220,7 +1282,7 @@
                     <span class="shop-section-label" style="flex:1;">🛡 Club Quest</span>
                     <span style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;">Whole club, resets weekly</span>
                 </div>
-                <div id="quest-club-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+                <div id="quest-club-list" style="display:flex;flex-flow:row wrap;gap:10px;margin-top:10px;"></div>
             </div>
 
             <!-- Community quest -->
@@ -1229,7 +1291,7 @@
                     <span class="shop-section-label" style="flex:1;">🌍 Community Quest</span>
                     <span style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:1.5px;color:#5a3a10;">Everyone, resets monthly</span>
                 </div>
-                <div id="quest-community-list" style="display:flex;flex-direction:column;gap:10px;margin-top:10px;"></div>
+                <div id="quest-community-list" style="display:flex;flex-flow:row wrap;gap:10px;margin-top:10px;"></div>
             </div>
 
         </div>
@@ -1305,26 +1367,25 @@
         <div class="customize-layout">
             <!-- LEFT: draggable live preview -->
             <div class="customize-preview-pane" id="customize-preview-pane">
-                <div class="customize-preview-hint">Drag to rotate ↻</div>
+                <div class="customize-preview-hint">Drag to flip & rotate ↻</div>
                 <div id="customize-preview-card-wrap">
-                    <div class="customize-aura" id="customize-preview-aura"></div>
                     <div class="card" id="customize-preview-card" data-rarity="legendary">
-                        <div class="customize-hat" id="customize-preview-hat"></div>
                         <div class="c-name" id="customize-preview-name">⚔ Attack</div>
                         <div class="c-icon" style="font-size:54px;">⚔️</div>
                         <div class="c-desc" id="customize-preview-desc">Deal <strong style="font-style:normal;color:#3a1a00;">6</strong> damage to the enemy.</div>
+                        <div class="customize-preview-back" id="customize-preview-back"></div>
                     </div>
                 </div>
+                <div class="customize-preview-nameplate" id="customize-preview-nameplate"></div>
                 <div class="customize-preview-caption" id="customize-preview-caption">Currently equipped</div>
             </div>
 
             <!-- RIGHT: owned cosmetics, tabbed -->
             <div class="customize-list-pane">
                 <div class="customize-tabs" id="customize-tabs">
-                    <button class="customize-tab active" data-class="hat"  onclick="_customizeSwitchTab('hat')">🎩 Hats</button>
-                    <button class="customize-tab" data-class="aura" onclick="_customizeSwitchTab('aura')">💫 Auras</button>
-                    <button class="customize-tab" data-class="card" onclick="_customizeSwitchTab('card')">🃏 Card Styles</button>
-                    <button class="customize-tab" data-class="font" onclick="_customizeSwitchTab('font')">🔤 Fonts</button>
+                    <button class="customize-tab active" data-class="cardback" onclick="_customizeSwitchTab('cardback')">🂠 Card Backs</button>
+                    <button class="customize-tab" data-class="title" onclick="_customizeSwitchTab('title')">🏷 Titles</button>
+                    <button class="customize-tab" data-class="frame" onclick="_customizeSwitchTab('frame')">🖼 Frames</button>
                 </div>
                 <div class="customize-item-grid" id="customize-item-grid"></div>
                 <div class="customize-empty" id="customize-empty" style="display:none;">
@@ -1840,7 +1901,7 @@
                 <span id="a-icons" class="status-icons"></span>
             </div>
             <div class="hp-label"><span>HP</span><span id="a-hp-val">75</span></div>
-            <div class="hp-bar"><div id="a-hp-f" class="hp-fill" style="width:100%;"></div></div>
+            <div class="hp-bar"><div id="a-hp-trail" class="hp-trail" style="width:100%;"></div><div id="a-hp-f" class="hp-fill" style="width:100%;"></div></div>
             <div id="a-status" class="status-tray"></div>
         </div>
 
@@ -1850,7 +1911,7 @@
                 <span id="p-icons" class="status-icons"></span>
             </div>
             <div class="hp-label"><span>HP</span><span id="p-hp-val">75</span></div>
-            <div class="hp-bar"><div id="p-hp-f" class="hp-fill" style="width:100%;"></div></div>
+            <div class="hp-bar"><div id="p-hp-trail" class="hp-trail" style="width:100%;"></div><div id="p-hp-f" class="hp-fill" style="width:100%;"></div></div>
             <div id="p-status" class="status-tray"></div>
         </div>
 

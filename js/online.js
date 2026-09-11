@@ -113,20 +113,85 @@ async function _enterMatchQueue() {
     if (!f) { document.getElementById('mm-status-text').textContent = 'Backend not ready — refresh and try again.'; return; }
 
     try {
-        // Scan the queue for an available opponent
-        const snap = await f.get('matchQueue');
+        // Create our own room + queue entry BEFORE scanning for an
+        // opponent. The old order (scan first, write second) meant two
+        // clients that opened matchmaking within the same instant would
+        // both see an empty queue and both end up waiting as a host —
+        // a silent deadlock with nothing to show in dev tools, since
+        // neither side ever throws: they're each just waiting for a
+        // Realtime update on a room the other side has no idea exists.
+        // Writing first guarantees whichever client's *read* happens
+        // second will see the other's entry.
+        const myCode = _genRoomCode();
+        const myJoinedAt = Date.now();
+        const seed = Math.floor(Math.random() * 999999);
+
+        _onlineCode = myCode;
+        _onlineRole = 'host';
+
+        const { error: roomErr } = await f.set('onlineRooms/' + myCode, {
+            host: _onlineUid, host_name: _getDisplayName(),
+            guest: null, guest_name: null,
+            status: 'waiting', seed,
+            // no "created" field — the table's created_at column has its
+            // own DB-side default; sending an unknown column here made
+            // every host-a-room upsert fail silently (error was never
+            // checked below), leaving hosts waiting forever for nothing.
+        });
+        if (roomErr) {
+            console.error('[DR Matchmaking] failed to create room:', roomErr.message);
+            document.getElementById('mm-status-text').textContent = 'Could not create a match — try again.';
+            return;
+        }
+
+        _mmQueueKey = _onlineUid;
+        await f.set('matchQueue/' + _onlineUid, {
+            uid:       _onlineUid,
+            name:      _getDisplayName(),
+            room_code: myCode,
+            joined_at: myJoinedAt,
+        });
+
+        // Now look for someone who was already waiting. Only match with
+        // entries strictly OLDER than ours (ties broken by uid string
+        // compare) — that way, if two clients both wrote at nearly the
+        // same instant and now see each other, only the "later" side
+        // acts as guest and joins the other's room. The earlier side
+        // just keeps waiting for that update via its own subscription,
+        // so both sides don't simultaneously try to become each other's
+        // guest, or both simultaneously bail out and wait forever.
         let foundMatch = false;
+        const snap = await f.get('matchQueue');
         if (snap && snap.data) {
             const queue = snap.data;
-            for (const [key, entry] of Object.entries(queue)) {
-                if (entry.uid === _onlineUid) continue;
+            const entries = Object.entries(queue).filter(([, e]) => e.uid !== _onlineUid);
+
+            // Opportunistic cleanup of stale entries (joined >60s ago and
+            // never got picked up — abandoned tab, refresh, etc).
+            for (const [key, entry] of entries) {
                 if (Date.now() - entry.joined_at > 60000) {
                     await f.remove('matchQueue/' + key);
-                    continue;
                 }
-                // Found an opponent — join their room
+            }
+
+            const candidates = entries
+                .filter(([, e]) => Date.now() - e.joined_at <= 60000)
+                .filter(([, e]) => e.joined_at !== myJoinedAt
+                    ? e.joined_at < myJoinedAt
+                    : e.uid < _onlineUid)
+                .sort((a, b) => a[1].joined_at - b[1].joined_at);
+
+            if (candidates.length) {
+                const [key, entry] = candidates[0];
                 foundMatch = true;
+
                 await f.remove('matchQueue/' + key);
+                await f.remove('matchQueue/' + _onlineUid); // we're joining as guest, not waiting
+                _mmQueueKey = null;
+                // The room we created above while writing-first is now
+                // abandoned since we're joining theirs instead — clean
+                // it up so it doesn't linger as a dead "waiting" room.
+                try { await f.remove('onlineRooms/' + myCode); } catch (e) {}
 
                 _onlineCode   = entry.room_code;
                 _onlineRole   = 'guest';
@@ -139,39 +204,11 @@ async function _enterMatchQueue() {
                     status:     'ready',
                 });
                 setTimeout(() => _startOnlineGame('guest', _onlineCode), 1200);
-                break;
             }
         }
 
         if (!foundMatch) {
-            // No one in queue — create a room and wait
-            _onlineCode = _genRoomCode();
-            _onlineRole = 'host';
-            const seed = Math.floor(Math.random() * 999999);
-
-            const { error: roomErr } = await f.set('onlineRooms/' + _onlineCode, {
-                host: _onlineUid, host_name: _getDisplayName(),
-                guest: null, guest_name: null,
-                status: 'waiting', seed,
-                // no "created" field — the table's created_at column has its
-                // own DB-side default; sending an unknown column here made
-                // every host-a-room upsert fail silently (error was never
-                // checked below), leaving hosts waiting forever for nothing.
-            });
-            if (roomErr) {
-                console.error('[DR Matchmaking] failed to create room:', roomErr.message);
-                document.getElementById('mm-status-text').textContent = 'Could not create a match — try again.';
-                return;
-            }
-
-            _mmQueueKey = _onlineUid;
-            await f.set('matchQueue/' + _onlineUid, {
-                uid:       _onlineUid,
-                name:      _getDisplayName(),
-                room_code: _onlineCode,
-                joined_at: Date.now(),
-            });
-
+            // No older entry to join — remain the host and wait.
             let dotCount = 0;
             const dotInterval = setInterval(() => {
                 dotCount = (dotCount + 1) % 4;
@@ -248,6 +285,20 @@ async function _startOnlineGame(role, code) {
             const room = snap.data;
             const oppName = role === 'host' ? (room.guest_name || 'Opponent') : (room.host_name || 'Opponent');
             oppLabel.textContent = '⚔ vs ' + oppName;
+
+            // Render the opponent's actual equipped card back on their
+            // hidden hand (rather than ours) — see applyOpponentCardBack
+            // in customize.js. Derived straight from the room doc's
+            // host/guest uid fields so this works for matchmaking,
+            // private lobby rooms, and tournament matches alike.
+            const oppUid = role === 'host' ? room.guest : room.host;
+            if (oppUid && typeof shopFetchPublicCosmetics === 'function') {
+                shopFetchPublicCosmetics(oppUid).then(cosmetics => {
+                    if (typeof applyOpponentCardBack === 'function') {
+                        applyOpponentCardBack(cosmetics?.cardback || null);
+                    }
+                });
+            }
         }
     } catch(e) {}
 
@@ -362,6 +413,7 @@ function _cleanupOnline() {
         try { window._db.remove('onlineRooms/' + _onlineCode); } catch(e){}
     }
     _onlineCode = null; _onlineRole = null; _onlineOppUid = null;
+    window._onlineOpponentCardback = null;
     const lbl = document.getElementById('online-opponent-label');
     if (lbl) lbl.textContent = '';
 }

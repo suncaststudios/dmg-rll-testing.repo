@@ -17,66 +17,90 @@
      dr_shop_daily_ids    — JSON array of today's 10 item ids
 ═══════════════════════════════════════════════════════════════════ */
 
-/* ═══════════════════ COSMETIC POOL (20 items) ═══════════════════ */
+/* ═══════════════════ COSMETIC POOL (26 items) ═══════════════════
+   v3 — hats/auras/card-skins/fonts retired (most people never
+   noticed they were equipped, and the ones that did were only
+   visible on your own screen — nobody else in a match could ever
+   see them). Replaced with cosmetics that are actually visible to
+   OTHER players wherever a username renders (leaderboard, lobby,
+   club roster) or that change something both players see mid-match
+   (the back of your hidden hand). Ownership for everything below now
+   lives on profiles/{uid}.owned_cosmetics in Firestore (see
+   _shopSyncOwnedToCloud/_shopLoadOwnedFromCloud) instead of only
+   localStorage, since gifting and other-player visibility both
+   require the server to know what you own. */
 const SHOP_POOL = [
-    /* ── HATS (6) ── */
-    { id:'hat_devil',    class:'hat',  name:'Devil Horns',     icon:'😈', desc:'Curved up from somewhere below. Nobody asks where they came from and you don\'t explain.',           price:180 },
-    { id:'hat_trucker',  class:'hat',  name:'Trucker Hat',     icon:'🧢', desc:'Beat up, sweat-stained, and slightly too far back on the head. Somehow works.',           price:120 },
-    { id:'hat_barb',     class:'hat',  name:'Barbarian Helm',  icon:'⛑',  desc:'Dented in three places. The dents were already there when you got it. Probably.',     price:200 },
-    { id:'hat_angel',    class:'hat',  name:'Angel Ring',      icon:'😇', desc:'Glows faintly. Does not reflect your actual behaviour in any way.',              price:150 },
-    { id:'hat_tnt',      class:'hat',  name:'TNT Block',       icon:'💣', desc:'Sits there. Looks familiar. We have no idea what you\'re talking about.',      price:160 },
-    { id:'hat_crown',    class:'hat',  name:'Thorn Crown',     icon:'👑', desc:'Thorns point outward. You got there the hard way and everyone can see it.',   price:280 },
+    /* ── CARD BACKS (6) — shown on your hidden hand in online matches,
+       so this is the one cosmetic your opponent actually sees mid-game. */
+    { id:'back_crimson',   class:'cardback', name:'Crimson Ward',    icon:'🩸', desc:'A deep red lattice, like it was dyed rather than printed.',              price:220 },
+    { id:'back_starmap',   class:'cardback', name:'Starmap',         icon:'✨', desc:'Constellations that don\'t match any sky anyone recognizes.',           price:260 },
+    { id:'back_goldleaf',  class:'cardback', name:'Gold Leaf',       icon:'🟨', desc:'Thin gold foil over black. Catches the light when you fan your hand.',   price:340 },
+    { id:'back_grimoire',  class:'cardback', name:'Grimoire Page',   icon:'📖', desc:'Torn from something old. The margins are full of notes in no language.', price:280 },
+    { id:'back_circuit',   class:'cardback', name:'Circuit Weave',   icon:'🟢', desc:'Traces of green light running under a matte black weave.',              price:240 },
+    { id:'back_bone',      class:'cardback', name:'Bone Lattice',    icon:'🦴', desc:'Interlocking, pale, and a little too well-organized to be comfortable.', price:300 },
 
-    /* ── AURAS (6) ── */
-    { id:'aura_supercharge',  class:'aura', name:'Supercharge',   icon:'⚡', desc:'Hair standing up, golden light everywhere. Something is about to happen.',      price:320 },
-    { id:'aura_skulls',  class:'aura', name:'Skull Orbit',     icon:'💀', desc:'They go around and around. They seem happy enough about it.',                price:280 },
-    { id:'aura_pixel',   class:'aura', name:'Pixel Glow',      icon:'🟦', desc:'8-bit glow from a time when this was as good as it got. Still holds up.',            price:240 },
-    { id:'aura_flame',   class:'aura', name:'Soul Flame',      icon:'🔥', desc:'Burns cold, which shouldn\'t be possible. The hand you picked it up with disagrees.',   price:300 },
-    { id:'aura_runes',   class:'aura', name:'Rune Pulse',      icon:'ᚠ',  desc:'Nobody alive can read them. The fact that they keep pulsing is probably fine.',       price:260 },
-    { id:'aura_void',    class:'aura', name:'Void Tear',       icon:'🌑', desc:'Something is on the other side of that tear. It hasn\'t come through yet.',  price:400 },
+    /* ── TITLES (6) — shown next to your name everywhere it renders. ── */
+    { id:'title_wanderer',   class:'title', name:'the Wanderer',    icon:'🪙', desc:'For nobody in particular. Which is the point.',                          price:100 },
+    { id:'title_unlucky',    class:'title', name:'the Unlucky',     icon:'🎲', desc:'Statistically, someone has to be. Might as well wear it.',               price:120 },
+    { id:'title_dicewhisperer', class:'title', name:'the Dice Whisperer', icon:'🗣', desc:'They don\'t actually talk to you. You just like saying it out loud.', price:160 },
+    { id:'title_undefeated', class:'title', name:'the Undefeated',  icon:'🛡', desc:'Accurate until it isn\'t. Wear it while it lasts.',                      price:200 },
+    { id:'title_archivist',  class:'title', name:'the Archivist',   icon:'🗂', desc:'For people who remember every match they\'ve ever lost.',                price:140 },
+    { id:'title_gambit',     class:'title', name:'the Gambit',      icon:'♟',  desc:'Sounds clever. Doesn\'t have to mean anything.',                          price:180 },
+
+    /* ── NAME-PLATE FRAMES (5) — decorative border behind your username. ── */
+    { id:'frame_ironbound', class:'frame', name:'Ironbound',   icon:'⚙', desc:'Riveted plate edges. Heavy-looking even as a thin border.',                    price:180 },
+    { id:'frame_gilded',    class:'frame', name:'Gilded',      icon:'🟡', desc:'Thin gold trim. Doesn\'t need to be loud to be noticed.',                     price:260 },
+    { id:'frame_thorned',   class:'frame', name:'Thorned',     icon:'🥀', desc:'Small dark thorns along the edge. Careful reaching for it.',                  price:220 },
+    { id:'frame_static',    class:'frame', name:'Static',      icon:'📺', desc:'A faint flicker along the border, like bad reception.',                       price:200 },
+    { id:'frame_engraved',  class:'frame', name:'Engraved',    icon:'🪵', desc:'Carved wood-grain trim. Looks handmade because it is, in the fiction.',       price:190 },
 
     /* ── VAULT-EXCLUSIVE (not for sale, not in daily rotation) ── */
-    { id:'aura_cod3breaker', class:'aura', name:'Cod3breaker', icon:'💻', desc:'Scanlines and falling code, dragged out of somewhere you weren\'t supposed to be.', hidden:true },
+    { id:'title_cod3breaker', class:'title', name:'the Cod3breaker', icon:'💻', desc:'Dragged out of somewhere you weren\'t supposed to be.', hidden:true },
 
-    /* ── CARDS (5) ── */
-    { id:'card_trad',    class:'card', name:'Traditional',     icon:'🃏', desc:'The original look, back when the game was played on actual paper. Some say it\'s still the best.',                    price:140 },
-    { id:'card_steel',   class:'card', name:'Steel Plate',     icon:'⚙',  desc:'Weighs the same as the others but feels heavier somehow. Good.',              price:220 },
-    { id:'card_gel',     class:'card', name:'Gel',             icon:'🫧', desc:'Catches the light weird. Makes a soft sound when you put it down. Nobody can explain why it\'s so good.',              price:180 },
-    { id:'card_obsidian',class:'card', name:'Obsidian',        icon:'🖤', desc:'They can\'t see what you\'re holding until you play it. That\'s not the point but it helps.',           price:260 },
-    { id:'card_parchment',class:'card',name:'Parchment',       icon:'📜', desc:'Looks like it was found in a library that burned down. The stains are unidentified.',                price:200 },
+    /* ── CLUB CRESTS (4) — purchased personally, but only a club
+       president can apply one to their club (Settings → Club
+       Cosmetics), replacing the plain emoji badge everywhere the club
+       renders: browse cards, overview header, member-list header. ── */
+    { id:'crest_wolfshead',  class:'crest', name:'Wolf\'s Head',   icon:'🐺', desc:'Old heraldry. Every club that\'s ever used it swears it was the first.', price:260 },
+    { id:'crest_bastion',    class:'crest', name:'Bastion',        icon:'🏰', desc:'A wall with a door nobody\'s ever seen opened.',                       price:260 },
+    { id:'crest_serpent',    class:'crest', name:'Coiled Serpent', icon:'🐍', desc:'Doesn\'t move. You checked. Twice.',                                    price:280 },
+    { id:'crest_phoenix',    class:'crest', name:'Rising Phoenix', icon:'🦅', desc:'Mid-flight, always. Never seems to actually land.',                    price:300 },
 
-    /* ── FONTS (3) ── */
-    { id:'font_mono',    class:'font', name:'Terminal Mono',   icon:'⌨',  desc:'Everything lines up. Every character the same width. Deeply satisfying to people who know why.',                 price:100 },
-    { id:'font_serif',   class:'font', name:'Elder Serif',     icon:'📖', desc:'Old enough to have opinions about modern fonts. Doesn\'t share them. Just looks like that.',     price:120 },
-    { id:'font_display', class:'font', name:'War Display',     icon:'⚔',  desc:'There is no lowercase. There is no quiet. There is only this.',               price:140 },
+    /* ── CLUB BANNERS (4) — background theme for the club's Overview
+       panel, also president-applied. ── */
+    { id:'clubbanner_crimson',  class:'clubbanner', name:'Crimson Hall',  icon:'🟥', desc:'Deep red, low light. Feels like somewhere decisions get made.', price:240 },
+    { id:'clubbanner_azure',    class:'clubbanner', name:'Azure Court',   icon:'🟦', desc:'Cold and clean. Everything looks more official in blue.',       price:240 },
+    { id:'clubbanner_verdant',  class:'clubbanner', name:'Verdant Keep',  icon:'🟩', desc:'Mossy stone and old green light. Quiet, in a good way.',        price:240 },
+    { id:'clubbanner_obsidian', class:'clubbanner', name:'Obsidian Vault',icon:'⬛', desc:'Almost no light at all. Somehow still feels expensive.',        price:280 },
 ];
+
 
 /* ═══════════════════ BUNDLE DEFINITIONS (rotated, max 3/day) ═════ */
 const BUNDLE_POOL = [
     {
         id:'bundle_warmonger', name:'Warmonger Pack', icon:'⚔',
         desc:'Everything you need to hurt someone, look good doing it, and make sure they remember it.',
-        itemIds:['hat_barb','aura_supercharge','card_steel','font_display'],
+        itemIds:['back_bone','title_undefeated','frame_ironbound'],
     },
     {
         id:'bundle_haunted', name:'Haunted Set', icon:'💀',
         desc:'Dark, deliberate, and slightly uncomfortable to sit across from. Exactly right.',
-        itemIds:['hat_devil','aura_skulls','card_obsidian'],
+        itemIds:['back_crimson','title_unlucky','frame_thorned'],
     },
     {
         id:'bundle_scholar', name:'Scholar\'s Collection', icon:'📜',
         desc:'Old paper, old words, old font. The kind of setup that makes people think you know something they don\'t.',
-        itemIds:['hat_angel','card_parchment','font_serif','aura_runes'],
+        itemIds:['back_grimoire','title_archivist','frame_engraved'],
     },
     {
         id:'bundle_retro', name:'Retro Rig', icon:'🟦',
         desc:'Low resolution, high confidence. The early days had a look and this is it.',
-        itemIds:['hat_tnt','aura_pixel','font_mono','card_gel'],
+        itemIds:['back_circuit','title_gambit','frame_static'],
     },
     {
         id:'bundle_void', name:'Void Walker', icon:'🌑',
         desc:'Dark border, nothing else. Sometimes the most threatening thing is a card with no explanation.',
-        itemIds:['hat_crown','aura_void','card_obsidian','font_display'],
+        itemIds:['back_starmap','title_dicewhisperer','frame_gilded'],
     },
 ];
 
@@ -93,6 +117,17 @@ const GOLD_SOURCES = [
 /* ═══════════════════ STATE ══════════════════════════════════════ */
 let _shopGold       = 0;
 let _shopOwned      = new Set();
+// Per-item metadata that doesn't fit a plain ownership Set:
+//   gifted    — true if this copy was received via a gift code (can't
+//               be re-gifted, sells for less, shows a "Gifted" tag).
+//   disposals — [{type:'sale'|'gift', at}], one entry per time this
+//               account has previously given up this item. Buyback
+//               price = stock price × (1 + Σ increment), where each
+//               'sale' disposal contributes 0.15 and each 'gift'
+//               disposal contributes 0.10 (gifting away and buying
+//               back your own gift is cheaper than repurchasing after
+//               selling it outright).
+let _shopMeta       = {};   // { itemId: { gifted, disposals } }
 let _shopHistory    = [];   // [{id, name, icon, price, purchasedAt}]
 let _shopPopularity = {};   // {itemId: globalCount} — loaded from Supabase or local
 let _shopPendingPop = {};   // {itemId: delta} — to be synced on quit
@@ -101,11 +136,30 @@ let _shopDailyBundleIds = [];// today's (up to 3) bundle ids
 let _shopActiveTab  = 'featured';
 let _shopActiveSub  = 'all';
 
+const SHOP_GIFT_FEE = 25; // flat gold cost to generate a gift code
+
+function _shopMetaFor(id) {
+    if (!_shopMeta[id]) _shopMeta[id] = { gifted: false, disposals: [] };
+    return _shopMeta[id];
+}
+function _shopIsGifted(id) {
+    return !!(_shopMeta[id] && _shopMeta[id].gifted);
+}
+function _shopDisposalIncrement(id) {
+    const disposals = _shopMeta[id]?.disposals || [];
+    return disposals.reduce((sum, d) => sum + (d.type === 'gift' ? 0.10 : 0.15), 0);
+}
+function _shopBuybackPrice(item) {
+    return Math.ceil(item.price * (1 + _shopDisposalIncrement(item.id)));
+}
+window._shopIsGifted = _shopIsGifted;
+
 /* ═══════════════════ INIT ═══════════════════════════════════════ */
 function _shopLoad() {
     try {
         _shopGold       = parseInt(localStorage.getItem('dr_shop_gold')  || '0', 10) || 0;
         _shopOwned      = new Set(JSON.parse(localStorage.getItem('dr_shop_owned')   || '[]'));
+        _shopMeta       = JSON.parse(localStorage.getItem('dr_shop_meta')            || '{}');
         _shopHistory    = JSON.parse(localStorage.getItem('dr_shop_history')         || '[]');
         _shopPopularity = JSON.parse(localStorage.getItem('dr_shop_popularity')      || '{}');
         _shopPendingPop = JSON.parse(localStorage.getItem('dr_shop_pending_pop')     || '{}');
@@ -117,6 +171,7 @@ function _shopSave() {
     try {
         localStorage.setItem('dr_shop_gold',        String(_shopGold));
         localStorage.setItem('dr_shop_owned',       JSON.stringify([..._shopOwned]));
+        localStorage.setItem('dr_shop_meta',        JSON.stringify(_shopMeta));
         localStorage.setItem('dr_shop_history',     JSON.stringify(_shopHistory));
         localStorage.setItem('dr_shop_popularity',  JSON.stringify(_shopPopularity));
         localStorage.setItem('dr_shop_pending_pop', JSON.stringify(_shopPendingPop));
@@ -124,7 +179,8 @@ function _shopSave() {
 }
 
 /* ── Gold API (called by game on win/achievement/etc) ── */
-function shopAwardGold(amount) {
+async function shopAwardGold(amount) {
+
     _shopLoad();
     _shopGold = Math.max(0, _shopGold + amount);
     _shopSave();
@@ -258,6 +314,7 @@ function switchShopTab(id) {
     if (id === 'featured')  _shopRenderFeatured();
     if (id === 'cosmetics') _shopRenderCosmetics(_shopActiveSub);
     if (id === 'bundles')   _shopRenderBundles();
+    if (id === 'inventory') _shopRenderInventory();
     if (id === 'history')   _shopRenderHistory();
 }
 
@@ -313,7 +370,7 @@ function _shopRenderFeatured() {
 /* ═══════════════════ COSMETICS ═════════════════════════════════ */
 function _shopRenderCosmetics(sub) {
     const daily = _shopDailyItems();
-    const classMap = { hats:'hat', auras:'aura', cards:'card', fonts:'font' };
+    const classMap = { cardbacks:'cardback', titles:'title', frames:'frame', crests:'crest', banners:'clubbanner' };
     const filterClass = classMap[sub] || null;
     const items = filterClass ? daily.filter(i => i.class === filterClass) : daily;
 
@@ -382,16 +439,22 @@ function _shopRenderHistory() {
 
 /* ═══════════════════ CARD HTML HELPERS ═════════════════════════ */
 function _shopClassLabel(cls) {
-    return { hat:'Hat', aura:'Aura', card:'Card Style', font:'Font' }[cls] || cls;
+    return { cardback:'Card Back', title:'Title', frame:'Frame', crest:'Club Crest', clubbanner:'Club Banner' }[cls] || cls;
 }
 function _shopClassColor(cls) {
-    return { hat:'#e8a020', aura:'#8040e0', card:'#2080e0', font:'#20a060' }[cls] || '#c8a460';
+    return { cardback:'#2080e0', title:'#e8a020', frame:'#8040e0', crest:'#c04030', clubbanner:'#20a060' }[cls] || '#c8a460';
 }
 
 function _shopItemCard(item, prefix = '') {
     const owned   = _shopOwned.has(item.id);
     const pop     = _shopGetPopularity(item.id);
     const clColor = _shopClassColor(item.class);
+    // If this account previously gave this item up (sold or gifted),
+    // buying it again costs more than the stock price — see
+    // _shopBuybackPrice. Shown instead of the stock price whenever
+    // there's disposal history, even though the item isn't currently
+    // owned.
+    const buyback = _shopDisposalIncrement(item.id) > 0 ? _shopBuybackPrice(item) : null;
     return `
     <div class="shop-item" onclick="_shopItemClick('${item.id}')">
         <div class="shop-item-class-bar" style="background:${clColor};"></div>
@@ -401,7 +464,9 @@ function _shopItemCard(item, prefix = '') {
         <div class="shop-item-desc">${item.desc}</div>
         ${owned
             ? `<div class="shop-item-owned">✓ Owned</div>`
-            : `<div class="shop-item-price">🪙 ${item.price.toLocaleString()}</div>`
+            : buyback
+                ? `<div class="shop-item-price" title="You previously gave this item up — buying it back costs more than the stock price">🪙 ${buyback.toLocaleString()} <span style="font-size:8px;opacity:.7;">(buyback)</span></div>`
+                : `<div class="shop-item-price">🪙 ${item.price.toLocaleString()}</div>`
         }
         ${pop > 0 ? `<div class="shop-item-pop">🔥 ${pop} purchased</div>` : ''}
     </div>`;
@@ -454,14 +519,19 @@ function _shopItemClick(id) {
     playSfx('cardHover');
 
     if (_shopOwned.has(id)) { _shopToast('Already owned!', '✓'); return; }
+    const increment = _shopDisposalIncrement(id);
+    const price = increment > 0 ? _shopBuybackPrice(item) : item.price;
     _shopShowConfirm({
         icon: item.icon,
         name: item.name,
         type: _shopClassLabel(item.class),
         typeColor: _shopClassColor(item.class),
         desc: item.desc,
-        price: item.price,
-        onConfirm: () => _shopDoPurchase(item),
+        price,
+        note: increment > 0
+            ? `Buyback price — you previously gave this item up, so it costs ${Math.round(increment*100)}% more than the ${item.price} 🪙 stock price.`
+            : undefined,
+        onConfirm: () => _shopDoPurchase(item, price),
     });
 }
 
@@ -509,13 +579,17 @@ function _shopBundleClick(id) {
     });
 }
 
-function _shopDoPurchase(item) {
-    if (_shopGold < item.price) { _shopToast('Not enough Gold!', '❌'); playSfx('error'); return; }
+function _shopDoPurchase(item, price) {
+    price = price ?? item.price;
+    if (_shopGold < price) { _shopToast('Not enough Gold!', '❌'); playSfx('error'); return; }
     _shopOwned.add(item.id);
-    _shopGold -= item.price;
+    // A shop purchase (even a buyback) is always a fresh, non-gifted
+    // copy — only redeeming a gift code sets gifted:true.
+    _shopMetaFor(item.id).gifted = false;
+    _shopGold -= price;
     _shopHistory.unshift({
         id: item.id, name: item.name, icon: item.icon,
-        class: item.class, price: item.price,
+        class: item.class, price,
         purchasedAt: Date.now(), refunded: false,
     });
     _shopHistory = _shopHistory.slice(0, 8);
@@ -529,7 +603,8 @@ function _shopDoPurchase(item) {
     playSfx('purchase');
 }
 
-/* ── Refund ── */
+/* ── Refund (undo a recent purchase, 80% back, only from the last-8
+   purchase history — separate from the general Sell action below) ── */
 function _shopRefund(id) {
     const entry = _shopHistory.find(h => h.id === id && !h.refunded);
     if (!entry) return;
@@ -544,19 +619,210 @@ function _shopRefund(id) {
     _shopSyncOwned();
 }
 
+/* ── Sell (any owned item, any time) ──
+   70% of stock price back, or only 50% if the item was received as a
+   gift (gifted copies are worth less to sell — they cost the seller
+   nothing to acquire beyond a redeemed code). Unlike _shopRefund above,
+   this records a 'sale' disposal, so buying the item again later costs
+   more (see _shopBuybackPrice). ── */
+function _shopSellItem(id) {
+    const item = SHOP_POOL.find(i => i.id === id);
+    if (!item || !_shopOwned.has(id)) return;
+    const gifted = _shopIsGifted(id);
+    const refundAmt = Math.floor(item.price * (gifted ? 0.5 : 0.7));
+    _shopShowConfirm({
+        icon: item.icon,
+        name: item.name,
+        type: _shopClassLabel(item.class),
+        typeColor: _shopClassColor(item.class),
+        desc: `Sell this item back for ${refundAmt} 🪙 (${gifted ? '50%' : '70%'} of its ${item.price} 🪙 stock price${gifted ? ' — reduced because it was a gifted item' : ''}). Buying it again later will cost more than stock price.`,
+        price: refundAmt,
+        note: 'This is a sale, not a refund — the price shown is what you\'ll receive, not pay.',
+        onConfirm: () => {
+            _shopOwned.delete(id);
+            _shopMetaFor(id).disposals.push({ type: 'sale', at: Date.now() });
+            _shopMetaFor(id).gifted = false; // no longer relevant, item is gone
+            _shopGold += refundAmt;
+            _shopSave();
+            _shopUpdateCurrencyDisplay();
+            _shopToast(`Sold for ${refundAmt} 🪙`, '↩');
+            document.getElementById('shop-confirm-modal')?.remove();
+            _shopRefreshActive();
+            _shopSyncOwned();
+        },
+    });
+}
+
+/* ── Gifting ──
+   Costs a small flat fee (SHOP_GIFT_FEE) on top of losing the item —
+   a spam/trade-abuse guard so gifting isn't a free way to shuffle
+   inventory around. Generates a one-time-use code the recipient
+   redeems via _shopRedeemGiftCode. ── */
+async function _shopGiftItem(id) {
+    const item = SHOP_POOL.find(i => i.id === id);
+    if (!item || !_shopOwned.has(id)) return;
+    if (_shopIsGifted(id)) { _shopToast("Gifted items can't be gifted again.", '❌'); return; }
+    if (!_syncedUid) { _shopToast('Sign in to gift items.', '❌'); return; }
+    if (_shopGold < SHOP_GIFT_FEE) { _shopToast(`Gifting costs ${SHOP_GIFT_FEE} 🪙 — not enough Gold.`, '❌'); return; }
+
+    const note = (prompt('Add a short note to include with the gift (optional):', '') || '').slice(0, 200);
+
+    const nextIncrement = _shopDisposalIncrement(id) + 0.10;
+    const nextBuyback = Math.ceil(item.price * (1 + nextIncrement));
+
+    _shopShowConfirm({
+        icon: item.icon,
+        name: item.name,
+        type: _shopClassLabel(item.class),
+        typeColor: _shopClassColor(item.class),
+        desc: `You will LOSE this item and pay a ${SHOP_GIFT_FEE} 🪙 gifting fee. You'll receive a one-time gift code to send to another player. You can buy this item back later for 🪙 ${nextBuyback.toLocaleString()}.`,
+        price: SHOP_GIFT_FEE,
+        note: '⚠ This cannot be undone except by buying the item back at the increased price above.',
+        onConfirm: async () => {
+            document.getElementById('shop-confirm-modal')?.remove();
+            try {
+                const code = _shopGenGiftCode();
+                const { error } = await fsSet('gift_codes', code, {
+                    item_id: item.id,
+                    item_name: item.name,
+                    item_icon: item.icon,
+                    from_uid: _syncedUid,
+                    from_name: (window._getDisplayName ? window._getDisplayName() : _profileData?.username) || 'A player',
+                    note,
+                    redeemed: false,
+                    to_uid: null,
+                    created_at: Date.now(),
+                });
+                if (error) { _shopToast('Could not create gift — try again.', '❌'); return; }
+
+                _shopOwned.delete(id);
+                _shopMetaFor(id).disposals.push({ type: 'gift', at: Date.now() });
+                _shopMetaFor(id).gifted = false;
+                _shopGold -= SHOP_GIFT_FEE;
+                _shopSave();
+                _shopUpdateCurrencyDisplay();
+                _shopSyncOwned();
+                _shopRefreshActive();
+                _shopShowGiftCodeModal(code, item);
+            } catch (e) {
+                console.warn('[DR Shop] gift error', e);
+                _shopToast('Could not create gift — try again.', '❌');
+            }
+        },
+    });
+}
+
+function _shopGenGiftCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = 'GIFT-';
+    for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+}
+
+function _shopShowGiftCodeModal(code, item) {
+    const wrap = document.createElement('div');
+    wrap.id = 'shop-confirm-modal';
+    wrap.className = 'shop-confirm-overlay';
+    wrap.innerHTML = `
+        <div class="shop-confirm-box">
+            <div class="shop-confirm-icon">🎁</div>
+            <div class="shop-confirm-name">Gift Code Created!</div>
+            <div class="shop-confirm-desc">Send this code to whoever you want to receive ${item.icon} ${item.name}. It can only be used once.</div>
+            <div style="font-family:'Cinzel',serif; font-size:20px; letter-spacing:4px; color:#e8c870; background:rgba(0,0,0,0.35); border:1px solid rgba(100,65,20,0.4); border-radius:4px; padding:10px; text-align:center; margin:14px 0;">${code}</div>
+            <div class="shop-confirm-actions">
+                <button class="shop-btn" onclick="navigator.clipboard?.writeText('${code}'); _shopToast('Copied!','✓');">Copy Code</button>
+                <button class="shop-btn shop-btn-gold" onclick="document.getElementById('shop-confirm-modal')?.remove();">Done</button>
+            </div>
+        </div>`;
+    document.body.appendChild(wrap);
+}
+
+/* ── Redeem a gift code ──
+   One-time use — the code doc's `redeemed` flag flips to true and is
+   checked before use, so a second redemption attempt (even by the same
+   person) fails once someone has claimed it. */
+async function _shopRedeemGiftCode() {
+    const input  = document.getElementById('shop-gift-redeem-input');
+    const status = document.getElementById('shop-gift-redeem-status');
+    const code = (input?.value || '').trim().toUpperCase();
+    if (!_syncedUid) { if (status) status.textContent = 'Sign in to redeem a gift.'; return; }
+    if (!code) { if (status) status.textContent = 'Enter a code.'; return; }
+    if (status) status.textContent = 'Checking…';
+    try {
+        const doc = await fsGet('gift_codes', code);
+        if (!doc) { if (status) status.textContent = 'No gift found with that code.'; return; }
+        if (doc.redeemed) { if (status) status.textContent = 'This code has already been used.'; return; }
+        if (doc.from_uid === _syncedUid) { if (status) status.textContent = "You can't redeem your own gift."; return; }
+
+        const item = SHOP_POOL.find(i => i.id === doc.item_id);
+        await fsSet('gift_codes', code, { redeemed: true, to_uid: _syncedUid, redeemed_at: Date.now() });
+
+        _shopOwned.add(doc.item_id);
+        _shopMetaFor(doc.item_id).gifted = true; // cannot be re-gifted, sells for less, shows a tag
+        _shopSave();
+        _shopSyncOwned();
+        _shopRefreshActive();
+        if (input) input.value = '';
+        if (status) status.textContent = '';
+        _shopToast(`Received ${doc.item_icon || ''} ${doc.item_name || item?.name || 'a gift'}!`, '🎁');
+        if (doc.note) {
+            setTimeout(() => alert(`A note from ${doc.from_name || 'the sender'}:\n\n"${doc.note}"`), 300);
+        }
+    } catch (e) {
+        console.warn('[DR Shop] redeem error', e);
+        if (status) status.textContent = 'Error — try again.';
+    }
+}
+
+/* ── Inventory tab render ── */
+function _shopRenderInventory() {
+    const list  = document.getElementById('shop-inventory-list');
+    const empty = document.getElementById('shop-inventory-empty');
+    if (!list) return;
+    const owned = [..._shopOwned].map(id => SHOP_POOL.find(i => i.id === id)).filter(Boolean);
+    if (!owned.length) {
+        list.innerHTML = '';
+        if (empty) empty.style.display = 'flex';
+        return;
+    }
+    if (empty) empty.style.display = 'none';
+    list.innerHTML = owned.map(item => {
+        const gifted = _shopIsGifted(item.id);
+        const sellAmt = Math.floor(item.price * (gifted ? 0.5 : 0.7));
+        return `
+        <div class="shop-history-row">
+            <div class="shop-history-icon">${item.icon}</div>
+            <div class="shop-history-info">
+                <div class="shop-history-name">${item.name} ${gifted ? '<span style="color:#e8c870;font-size:8px;letter-spacing:1px;text-transform:uppercase;">🎁 Gifted</span>' : ''}</div>
+                <div class="shop-history-meta">${_shopClassLabel(item.class)}</div>
+            </div>
+            <div class="shop-history-right" style="display:flex;gap:6px;">
+                ${gifted ? '' : `<button class="shop-btn" style="font-size:8px;padding:6px 10px;" onclick="_shopGiftItem('${item.id}')">🎁 Gift</button>`}
+                <button class="shop-btn shop-btn-refund" style="font-size:8px;padding:6px 10px;" onclick="_shopSellItem('${item.id}')">Sell ${sellAmt} 🪙</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
 /* ── Sync owned list to Firebase ──
    Personal inventory, same category as profile data — items you bought
    shouldn't disappear (or be tied to) whichever Supabase region you
-   picked for matchmaking, so this lives in Firestore, not Supabase. */
+   picked for matchmaking, so this lives in Firestore, not Supabase.
+   Also syncs _shopMeta (gifted flags + disposal history) so buyback
+   pricing and gift restrictions persist across devices, and equipped
+   cosmetics (in customize.js) are readable by OTHER players' clients —
+   that only works because ownership itself lives here, not just in
+   localStorage. */
 async function _shopSyncOwned() {
     const uid = window._syncedUid || (typeof _syncedUid !== 'undefined' ? _syncedUid : null);
     if (!uid) return;
     try {
         const ownedArr = [..._shopOwned].map(id => {
             const item = SHOP_POOL.find(i => i.id === id);
-            return { item_id: id, item_name: item?.name || id };
+            const meta = _shopMeta[id] || {};
+            return { item_id: id, item_name: item?.name || id, gifted: !!meta.gifted };
         });
-        await fsSet('shop_owned', uid, { owned: ownedArr });
+        await fsSet('shop_owned', uid, { owned: ownedArr, meta: _shopMeta });
     } catch(e) {}
 }
 
@@ -568,10 +834,24 @@ async function _shopLoadOwned() {
         const data = await fsGet('shop_owned', uid);
         if (data?.owned) {
             data.owned.forEach(e => _shopOwned.add(e.item_id));
-            _shopSave();
         }
+        if (data?.meta) Object.assign(_shopMeta, data.meta);
+        _shopSave();
     } catch(e) {}
 }
+
+/* Fetches another player's equipped cosmetics + gifted-title/frame ids
+   for rendering their name-plate/card-back elsewhere (leaderboard,
+   lobby, club roster, opponent hand). Returns null on failure so
+   callers can fall back to a plain name with no decoration. */
+async function shopFetchPublicCosmetics(uid) {
+    if (!uid) return null;
+    try {
+        const profile = await fsGet('profiles', uid);
+        return profile?.equipped_cosmetics || null;
+    } catch(e) { return null; }
+}
+window.shopFetchPublicCosmetics = shopFetchPublicCosmetics;
 
 /* ─────────────────── CONFIRM MODAL ─────────────────── */
 function _shopShowConfirm({ icon, name, type, typeColor, desc, price, note, onConfirm }) {
@@ -625,6 +905,7 @@ function _shopRefreshActive() {
     if (_shopActiveTab === 'cosmetics') _shopRenderCosmetics(_shopActiveSub);
     if (_shopActiveTab === 'bundles')   _shopRenderBundles();
     if (_shopActiveTab === 'history')   _shopRenderHistory();
+    if (_shopActiveTab === 'inventory') _shopRenderInventory();
 }
 
 function _shopToast(msg, icon = '✓') {

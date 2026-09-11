@@ -277,6 +277,7 @@ body.theme-scourge #changelog-panel {
     background: linear-gradient(160deg, rgba(9,14,9,.98), rgba(4,6,4,.99)) !important;
     border-color: rgba(111,224,90,.28) !important;
 }
+body.theme-scourge .cl-titlebar { background: linear-gradient(180deg, rgba(14,20,14,.97), rgba(6,9,6,.98)) !important; border-bottom: 1px solid rgba(111,224,90,.28) !important; }
 body.theme-scourge .cl-titlebar-text { color: #6fe05a !important; font-family: 'MedievalSharp', serif !important; }
 body.theme-scourge .cl-titlebar-text::before { content: '👁 '; }
 body.theme-scourge .cl-entry { border-color: rgba(111,224,90,.14) !important; }
@@ -326,4 +327,16 @@ body.theme-scourge {
     --die-text: #d9ffdc;
     --die-text-glow: rgba(111,224,90,0.6);
     --die-label-color: rgba(111,224,90,0.85);
+}
+
+/* ── Profile screen theming (variable overrides only — .prf-avatar and
+   .prf-cover stay neutral so a user's own uploaded photo isn't recolored) ── */
+body.theme-scourge #menu-profile {
+    --prf-bg1: rgba(9,14,9,.98); --prf-bg2: rgba(4,6,4,.99);
+    --prf-border: rgba(111,224,90,.28); --prf-border-dim: rgba(111,224,90,.16);
+    --prf-text-bright: #6fe05a; --prf-text-mid: #4fb040;
+    --prf-text-dim: #3a7a30; --prf-text-label: #2a5a20;
+    --prf-btn-bg: rgba(4,6,4,.85);
+    --prf-cover-a: #0e1a0e; --prf-cover-b: #1a2e1a;
+    --prf-cover-c: #081008; --prf-cover-d: #020602;
 }

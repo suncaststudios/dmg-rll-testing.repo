@@ -240,6 +240,7 @@ body.theme-angelic #changelog-panel {
     border-radius: 0 !important;
     box-shadow: 0 1px 4px rgba(0,0,0,.1) !important;
 }
+body.theme-angelic .cl-titlebar { background: #f8f9fa !important; border-bottom: 1px solid #a2a9b1 !important; }
 body.theme-angelic .cl-titlebar-text { color: #202122 !important; font-family: 'Linux Libertine', Georgia, serif !important; }
 body.theme-angelic .cl-entry { border-color: #eaecf0 !important; }
 body.theme-angelic .cl-version { color: #c9a227 !important; }
@@ -284,4 +285,16 @@ body.theme-angelic {
     --die-text: #202122;
     --die-text-glow: rgba(201,162,39,0.5);
     --die-label-color: rgba(84,89,93,0.9);
+}
+
+/* ── Profile screen theming (variable overrides only — .prf-avatar and
+   .prf-cover stay neutral so a user's own uploaded photo isn't recolored) ── */
+body.theme-angelic #menu-profile {
+    --prf-bg1: #ffffff; --prf-bg2: #f8f9fa;
+    --prf-border: #a2a9b1; --prf-border-dim: rgba(162,169,177,.4);
+    --prf-text-bright: #202122; --prf-text-mid: #404244;
+    --prf-text-dim: #606468; --prf-text-label: #767a7f;
+    --prf-btn-bg: #f8f9fa;
+    --prf-cover-a: #eaecf0; --prf-cover-b: #f8f9fa;
+    --prf-cover-c: #dde1e6; --prf-cover-d: #c8ccd1;
 }

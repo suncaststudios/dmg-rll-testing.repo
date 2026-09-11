@@ -333,7 +333,6 @@ function render() {
             <div class="c-name">${c.n}</div>
             <div class="c-icon">${c.i}</div>
             <div class="c-desc">${c.d}</div>`;
-        if (typeof _applyCardCosmetics === 'function') _applyCardCosmetics(el, 'hat-sm');
         el.onclick = () => { if (state.turn) playerAct(i); };
         el.addEventListener('mouseenter', () => { el.classList.add('hovered'); playSfx('cardHover'); });
         el.addEventListener('mousemove', e => {
@@ -356,8 +355,14 @@ function render() {
     const ah = document.getElementById('a-hand');
     ah.innerHTML = '';
     for (let i = 0; i < 5; i++) ah.innerHTML += `<div class="ai-back"></div>`;
+    // Local (vs AI) preview of your own equipped card back — online.js
+    // overrides this with the real opponent's cosmetic via
+    // applyOpponentCardBack() once it knows who you're playing.
+    if (typeof _applyOwnCardBackPreview === 'function') _applyOwnCardBackPreview();
 
-    document.getElementById('turn-indicator').textContent = state.turn ? 'Your Turn' : "Opponent's Turn";
+    const _ti = document.getElementById('turn-indicator');
+    _ti.textContent = state.turn ? 'Your Turn' : "Opponent's Turn";
+    _ti.classList.toggle('your-turn', !!state.turn);
     updateHUD();
 }
 

@@ -215,6 +215,36 @@ window.addEventListener('focus', () => {
     if (AC && AC.state === 'suspended') AC.resume();
 });
 
+/* Drives an .hp-fill + its .hp-trail sibling toward a new percentage.
+   On damage (newPct < current), the fill drops immediately while the
+   trail snaps to the OLD width first (transition briefly disabled,
+   forced reflow, then transition re-enabled) so it visibly eases down
+   to the new width a beat later — the "chunk bitten off" effect. On
+   heals, the trail just tracks the fill immediately; the lag reads as
+   sluggish there instead of satisfying. */
+function _hpBarUpdateWithTrail(fillEl, trailEl, newPct) {
+    if (!fillEl) return;
+    const pctStr = newPct + '%';
+    const isDamage = trailEl && parseFloat(fillEl.style.width || '100') > newPct;
+    fillEl.style.width = pctStr;
+    if (!trailEl) return;
+    if (isDamage) {
+        trailEl.classList.add('dmg');
+        const oldWidth = trailEl.style.width;
+        trailEl.style.transition = 'none';
+        trailEl.style.width = oldWidth; // hold at previous width
+        trailEl.offsetHeight;           // force reflow so the next line actually animates
+        trailEl.style.transition = '';
+        trailEl.style.width = pctStr;
+    } else {
+        trailEl.classList.remove('dmg');
+        trailEl.style.transition = 'none';
+        trailEl.style.width = pctStr;
+        trailEl.offsetHeight;
+        trailEl.style.transition = '';
+    }
+}
+
 function updateHUD() {
     // Always keep changelog hidden while battle board is active
     const _boardVisible = document.getElementById('board')?.style.display === 'block';
@@ -227,7 +257,8 @@ function updateHUD() {
     const aPct = Math.max(0, state.aHP / MAX_HP * 100);
     const pFill = document.getElementById('p-hp-f');
     const aFill = document.getElementById('a-hp-f');
-    pFill.style.width = pPct + '%'; aFill.style.width = aPct + '%';
+    _hpBarUpdateWithTrail(pFill, document.getElementById('p-hp-trail'), pPct);
+    _hpBarUpdateWithTrail(aFill, document.getElementById('a-hp-trail'), aPct);
 
     const pLow = pPct < 30;
     const aLow = aPct < 30;
@@ -312,15 +343,56 @@ function updateHUD() {
             toggle('screen-end', true);
             showEndStats(won, endSnapshot);
             const et = document.getElementById('end-title');
-            if (!won) {
-                et.textContent = 'DEFEAT';
-                et.style.color = '#c62828';
-                et.style.textShadow = '0 0 40px rgba(200,0,0,0.8), 0 4px 0 #000';
-            } else {
-                et.textContent = 'VICTORY';
-                et.style.color = '#ffd700';
-                et.style.textShadow = '0 0 40px rgba(255,180,0,0.8), 0 4px 0 #000';
-            }
+            const screenEnd = document.getElementById('screen-end');
+            // Toggling .defeat (rather than setting inline color/textShadow,
+            // as before) so the actual CSS gradient text applies. The base
+            // #end-title rule uses -webkit-text-fill-color:transparent with
+            // the text's color coming entirely from a background gradient
+            // clipped to the glyphs — an inline `color` never showed through
+            // that on Chrome/Safari/Edge, so DEFEAT silently rendered in the
+            // same gold as VICTORY on every WebKit-based browser.
+            et.classList.toggle('defeat', !won);
+            et.textContent = won ? 'VICTORY' : 'DEFEAT';
+            et.style.color = '';
+            et.style.textShadow = '';
+            screenEnd?.classList.toggle('victory-bg', won);
+            screenEnd?.classList.toggle('defeat-bg', !won);
+            if (won) _spawnVictoryCelebration();
         }, 600);
     }
+}
+
+/* Confetti-style burst across the whole end screen on a win — the
+   in-battle spawnParticles() is scoped to #board (hidden behind the
+   end screen by then), so this spawns its own particles anchored to
+   the viewport instead, in a few staggered waves for a fuller
+   "celebration" read rather than one instant puff. */
+function _spawnVictoryCelebration() {
+    if (typeof opt === 'function' && (opt('opt-reduced'))) return;
+    const layer = document.getElementById('screen-end');
+    if (!layer) return;
+    const layerH = layer.clientHeight || window.innerHeight;
+    const colors = ['#ffd700','#ffb300','#fff7aa','#ff8800','#ffffff','#e8c870'];
+    const burst = () => {
+        for (let i = 0; i < 22; i++) {
+            const p = document.createElement('div');
+            p.className = 'victory-confetti';
+            const startX = Math.random() * 100;
+            const size = Math.random() * 8 + 5;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const dur = Math.random() * 1400 + 1800;
+            const drift = (Math.random() - 0.5) * 160;
+            const spin = Math.random() * 720 - 360;
+            p.style.cssText = `left:${startX}%; top:-20px; width:${size}px; height:${size}px; background:${color}; box-shadow:0 0 ${size}px ${color}; transition: transform ${dur}ms cubic-bezier(0.2,0.6,0.4,1), opacity ${dur}ms ease ${dur-300}ms;`;
+            layer.appendChild(p);
+            requestAnimationFrame(() => {
+                p.style.transform = `translate(${drift}px, ${layerH + 40}px) rotate(${spin}deg)`;
+                p.style.opacity = '0';
+            });
+            setTimeout(() => p.remove(), dur + 200);
+        }
+    };
+    burst();
+    setTimeout(burst, 350);
+    setTimeout(burst, 750);
 }

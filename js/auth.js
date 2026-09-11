@@ -361,7 +361,7 @@ async function _authOnLogin(user) {
     if (typeof _loadEquippedCosmetics === 'function') _loadEquippedCosmetics();
     if (typeof _customizeRenderPreview === 'function') _customizeRenderPreview(null);
     if (typeof _customizeSwitchTab === 'function' && typeof _customizeActiveTab !== 'undefined') _customizeSwitchTab(_customizeActiveTab);
-    if (typeof _refreshMenuCardCosmetics === 'function') _refreshMenuCardCosmetics();
+    if (typeof _applyOwnCardBackPreview === 'function') _applyOwnCardBackPreview();
     // Merge in any daily/weekly/unlimited quest progress saved from
     // another device — see _questSyncFromFirebase in quests.js.
     if (typeof _questSyncFromFirebase === 'function') _questSyncFromFirebase();
@@ -630,7 +630,7 @@ async function _prefLogout() {
     if (typeof _loadEquippedCosmetics === 'function') _loadEquippedCosmetics();
     if (typeof _customizeRenderPreview === 'function') _customizeRenderPreview(null);
     if (typeof _customizeSwitchTab === 'function' && typeof _customizeActiveTab !== 'undefined') _customizeSwitchTab(_customizeActiveTab);
-    if (typeof _refreshMenuCardCosmetics === 'function') _refreshMenuCardCosmetics();
+    if (typeof _applyOwnCardBackPreview === 'function') _applyOwnCardBackPreview();
     // Clear local daily/weekly/unlimited quest progress on logout too —
     // otherwise a second account logging in on the same browser could
     // pick up an unintended progress boost, since the post-login merge

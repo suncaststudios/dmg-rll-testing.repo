@@ -1,49 +1,51 @@
 /* ═══════════════════════════════════════════════════════════════════
    CUSTOMIZE  —  equip owned cosmetics
    ─────────────────────────────────────────────────────────────────
-   Cosmetics are for the CARDS. "card" class items skin the card
-   itself; hat/aura/font items decorate on top of whatever card is
-   showing. One item equipped per class at a time (hat, aura, card,
-   font) — a simple loadout, not per-card-instance.
+   v2 — hats/auras/card-skins/fonts retired in favor of cosmetics that
+   are actually visible to OTHER players: a card back (shown on your
+   hidden hand to your online opponent), a title (shown next to your
+   name in the leaderboard/lobby/club roster/profile), and a name-plate
+   frame (border behind your username in those same places).
 
-   Storage: dr_equipped_cosmetics — { hat, aura, card, font } ids.
-   Reuses SHOP_POOL and _shopOwned from shop.js (loaded first).
+   One item equipped per class at a time. Reuses SHOP_POOL and
+   _shopOwned from shop.js (loaded first).
+
+   Storage: dr_equipped_cosmetics — { cardback, title, frame } ids,
+   mirrored to profiles/{uid}.equipped_cosmetics in Firestore so other
+   players' clients can actually render what you have equipped.
 ═══════════════════════════════════════════════════════════════════ */
 
-/* Visual mappings — no separate art assets, so card skins/auras/fonts
-   are expressed as CSS values keyed by item id. Hats just reuse each
-   item's own emoji icon as a badge, no mapping needed for those. */
-const CUSTOMIZE_CARD_SKINS = {
-    card_trad:      'radial-gradient(ellipse at 50% 0%, #efe0b8 0%, #c8a45a 50%, #8a6028 100%)',
-    card_steel:     'linear-gradient(160deg, #dbe3ea 0%, #93a0aa 45%, #4a5058 100%)',
-    card_gel:       'linear-gradient(160deg, rgba(190,228,255,0.95) 0%, rgba(130,190,248,0.85) 50%, rgba(70,130,215,0.95) 100%)',
-    card_obsidian:  'linear-gradient(160deg, #35353c 0%, #121216 55%, #030304 100%)',
-    card_parchment: 'radial-gradient(ellipse at 50% 0%, #ede1c4 0%, #cabb8c 50%, #8a7850 100%)',
-};
-const CUSTOMIZE_FONTS = {
-    font_mono:    "'Share Tech Mono', monospace",
-    font_serif:   "'IM Fell English', serif",
-    font_display: "'Cinzel Decorative', serif",
-};
-const CUSTOMIZE_AURA_RGB = {
-    aura_supercharge: '255,204,0',
-    aura_skulls: '210,210,220',
-    aura_pixel:  '70,180,255',
-    aura_flame:  '255,90,30',
-    aura_runes:  '110,220,140',
-    aura_void:   '150,60,220',
-    aura_cod3breaker: '90,255,120',
+/* Visual mapping for card backs — no separate art assets, so each back
+   is expressed as a CSS gradient + a corner glyph, applied to the
+   existing .ai-back element (opponent's hidden hand) via inline
+   styles set in JS. */
+const CUSTOMIZE_CARDBACKS = {
+    back_crimson:  { bg: 'linear-gradient(160deg, #6b0000 0%, #2a0000 60%, #0a0000 100%)', glyph: '🩸', trim: 'rgba(220,60,60,0.5)' },
+    back_starmap:  { bg: 'radial-gradient(ellipse at 30% 20%, #1a1a3a 0%, #05050f 60%, #000 100%)', glyph: '✨', trim: 'rgba(180,200,255,0.45)' },
+    back_goldleaf: { bg: 'linear-gradient(160deg, #3a2c04 0%, #14100a 60%, #050400 100%)', glyph: '🟨', trim: 'rgba(232,200,80,0.6)' },
+    back_grimoire: { bg: 'radial-gradient(ellipse at 50% 0%, #2a2010 0%, #14100a 55%, #060402 100%)', glyph: '📖', trim: 'rgba(200,170,110,0.45)' },
+    back_circuit:  { bg: 'linear-gradient(160deg, #0a1a10 0%, #050a08 60%, #010302 100%)', glyph: '🟢', trim: 'rgba(80,220,120,0.5)' },
+    back_bone:     { bg: 'linear-gradient(160deg, #2a241c 0%, #100e0a 60%, #030201 100%)', glyph: '🦴', trim: 'rgba(220,210,190,0.4)' },
 };
 
-let _customizeActiveTab = 'hat';
-let _equippedCosmetics = { hat: null, aura: null, card: null, font: null };
-// (old drag-position vars removed — see _customizeRotY/_customizeRotX below)
+/* Name-plate frame styles — applied wherever a username renders via
+   .np-frame-<id> classes (see css/main.css). */
+const CUSTOMIZE_FRAMES = {
+    frame_ironbound: { border: '2px solid #7a7a80', bg: 'rgba(50,50,55,0.35)' },
+    frame_gilded:    { border: '2px solid #e8c870', bg: 'rgba(90,70,20,0.25)' },
+    frame_thorned:   { border: '2px solid #8a3050', bg: 'rgba(60,15,25,0.3)' },
+    frame_static:    { border: '2px dashed #90a0b0', bg: 'rgba(40,50,60,0.3)' },
+    frame_engraved:  { border: '2px solid #a07850', bg: 'rgba(60,40,20,0.3)' },
+};
+
+let _customizeActiveTab = 'cardback';
+let _equippedCosmetics = { cardback: null, title: null, frame: null };
 
 function _loadEquippedCosmetics() {
     // Mutate the existing object in place (don't reassign) so that
     // window._equippedCosmetics — captured once on DOMContentLoaded —
     // never goes stale after a reload from storage.
-    Object.assign(_equippedCosmetics, { hat: null, aura: null, card: null, font: null });
+    Object.assign(_equippedCosmetics, { cardback: null, title: null, frame: null });
 
     // Guests (not logged in) never have cosmetics active — dr_equipped_cosmetics
     // is plain localStorage, so without this check whatever the last logged-in
@@ -60,7 +62,10 @@ function _loadEquippedCosmetics() {
 function _saveEquippedCosmetics() {
     try { localStorage.setItem('dr_equipped_cosmetics', JSON.stringify(_equippedCosmetics)); } catch (e) {}
     // Best-effort cloud sync, same pattern as profile saves — never blocks the UI.
-    // profiles = Firestore now, not Supabase (see js/firestore-db.js).
+    // profiles = Firestore now, not Supabase (see js/firestore-db.js). This is
+    // what actually lets OTHER players' clients render your equipped title/
+    // frame/card-back — without it, cosmetics would only ever be visible on
+    // your own screen, which was the whole problem with the old hat/aura set.
     if (typeof _syncedUid !== 'undefined' && _syncedUid) {
         fsSet('profiles', _syncedUid, { equipped_cosmetics: _equippedCosmetics })
             .then(({ error }) => {
@@ -69,71 +74,64 @@ function _saveEquippedCosmetics() {
     }
 }
 
-/* ── Apply the equipped cosmetics to any real card element outside the
-   Customize screen (main-menu showcase card, in-combat hand cards).
-   Creates/removes the hat and aura effects on demand rather than
-   requiring pre-existing markup, since hand cards are built fresh by
-   render() every turn. hatSizeClass picks the hat's size for whatever
-   context it's in ('hat-lg' | 'hat-md' | 'hat-sm', see CSS). ── */
-function _applyCardCosmetics(cardEl, hatSizeClass) {
-    if (!cardEl) return;
-
-    const loggedIn = typeof _isLoggedIn === 'function' ? _isLoggedIn() : true;
-    const combo = (loggedIn && typeof _equippedCosmetics !== 'undefined')
-        ? _equippedCosmetics
-        : { hat: null, aura: null, card: null, font: null };
-
-    // Card skin
-    cardEl.style.background = (combo.card && typeof CUSTOMIZE_CARD_SKINS !== 'undefined' && CUSTOMIZE_CARD_SKINS[combo.card])
-        ? CUSTOMIZE_CARD_SKINS[combo.card] : '';
-
-    // Font
-    const fontFamily = (combo.font && typeof CUSTOMIZE_FONTS !== 'undefined' && CUSTOMIZE_FONTS[combo.font])
-        ? CUSTOMIZE_FONTS[combo.font] : '';
-    const nameEl = cardEl.querySelector('.c-name');
-    const descEl = cardEl.querySelector('.c-desc');
-    if (nameEl) nameEl.style.fontFamily = fontFamily;
-    if (descEl) descEl.style.fontFamily = fontFamily;
-
-    // Hat
-    let hatEl = cardEl.querySelector('.cosmetic-hat');
-    if (combo.hat) {
-        const hatItem = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : []).find(i => i.id === combo.hat);
-        if (!hatEl) {
-            hatEl = document.createElement('div');
-            hatEl.className = 'cosmetic-hat ' + (hatSizeClass || 'hat-md');
-            cardEl.appendChild(hatEl);
-        }
-        hatEl.textContent = hatItem ? hatItem.icon : '';
-    } else if (hatEl) {
-        hatEl.remove();
-    }
-
-    // Aura (see .card.has-cosmetic-aura in CSS for why this is a filter,
-    // not a layered child element)
-    if (combo.aura && typeof CUSTOMIZE_AURA_RGB !== 'undefined' && CUSTOMIZE_AURA_RGB[combo.aura]) {
-        const rgb = CUSTOMIZE_AURA_RGB[combo.aura];
-        cardEl.style.setProperty('--cosmetic-aura-glow', `drop-shadow(0 0 20px rgba(${rgb},0.65))`);
-        cardEl.classList.add('has-cosmetic-aura');
+/* ── Apply a card back to a single .ai-back element. ── */
+function _applyCardBackToEl(el, cardbackId) {
+    if (!el) return;
+    const back = cardbackId && CUSTOMIZE_CARDBACKS[cardbackId];
+    if (back) {
+        el.style.background = back.bg;
+        el.style.borderColor = back.trim;
+        el.dataset.cosmeticGlyph = back.glyph;
     } else {
-        cardEl.style.removeProperty('--cosmetic-aura-glow');
-        cardEl.classList.remove('has-cosmetic-aura');
-    }
-
-    if (typeof _customizeUpdateCod3breakerFx === 'function') {
-        _customizeUpdateCod3breakerFx(cardEl, combo.aura === 'aura_cod3breaker');
+        el.style.background = '';
+        el.style.borderColor = '';
+        delete el.dataset.cosmeticGlyph;
     }
 }
 
-/* Refreshes the main-menu showcase card (#menu-float-card) with whatever
-   is currently equipped. Called on load and whenever equip state or
-   login state changes. */
-function _refreshMenuCardCosmetics() {
-    const el = document.querySelector('#menu-float-card .card');
-    if (el) _applyCardCosmetics(el, 'hat-lg');
+/* Applies whichever card back should currently show on the opponent's
+   hidden hand (.ai-back), rebuilt fresh by render() every turn. In an
+   online match this must be the OPPONENT's equipped cosmetic — cached
+   in window._onlineOpponentCardback by _startOnlineGame — not your
+   own, otherwise every re-render (i.e. every turn) would silently
+   overwrite their card back with yours. Locally (vs AI) there's no
+   opponent cosmetic, so this just previews your own equipped back. */
+function _applyOwnCardBackPreview() {
+    if (typeof _isLoggedIn === 'function' && !_isLoggedIn()) return;
+    const cardbackId = (typeof window._onlineMode !== 'undefined' && window._onlineMode)
+        ? (window._onlineOpponentCardback || null)
+        : _equippedCosmetics.cardback;
+    document.querySelectorAll('#a-hand .ai-back').forEach(el => _applyCardBackToEl(el, cardbackId));
 }
 
-document.addEventListener('DOMContentLoaded', _refreshMenuCardCosmetics);
+function applyOpponentCardBack(cardbackId) {
+    window._onlineOpponentCardback = cardbackId || null;
+    document.querySelectorAll('#a-hand .ai-back').forEach(el => _applyCardBackToEl(el, cardbackId || null));
+}
+window.applyOpponentCardBack = applyOpponentCardBack;
+
+/* ── Name-plate rendering ──
+   Wraps a username string with its equipped title (suffix, e.g.
+   "Rowan the Unlucky") and wraps the whole thing in a frame span if a
+   frame is equipped. Used by leaderboard.js, lobby.js, clubs.js —
+   anywhere a username currently gets dropped into a template string.
+   Takes the raw name plus optional {title, frame} ids (so it can
+   render OTHER players' cosmetics, not just your own) and returns an
+   HTML string. Caller is responsible for escaping `name` first. */
+function renderNamePlate(escapedName, cosmetics) {
+    const c = cosmetics || {};
+    const titleItem = c.title ? (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL.find(i => i.id === c.title && i.class === 'title') : null) : null;
+    const frameId = c.frame && CUSTOMIZE_FRAMES[c.frame] ? c.frame : null;
+
+    const inner = titleItem
+        ? `${escapedName} <span class="np-title">${titleItem.icon} ${titleItem.name}</span>`
+        : escapedName;
+
+    return frameId ? `<span class="np-frame np-frame-${frameId}">${inner}</span>` : inner;
+}
+window.renderNamePlate = renderNamePlate;
+
+document.addEventListener('DOMContentLoaded', _applyOwnCardBackPreview);
 
 function openCustomize() {
     playSfx('menuClick');
@@ -142,6 +140,10 @@ function openCustomize() {
     _customizeSwitchTab(_customizeActiveTab);
     _customizeRenderPreview(null);
     _customizeInitRotate();
+}
+
+function _customizeClassLabel(cls) {
+    return { cardback: 'Card Back', title: 'Title', frame: 'Frame' }[cls] || cls;
 }
 
 function _customizeSwitchTab(cls) {
@@ -174,15 +176,19 @@ function _customizeSwitchTab(cls) {
     }
     if (empty) empty.style.display = 'none';
 
-    grid.innerHTML = items.map(item => `
+    grid.innerHTML = items.map(item => {
+        const gifted = typeof _shopIsGifted === 'function' && _shopIsGifted(item.id);
+        return `
         <div class="customize-item ${_equippedCosmetics[cls] === item.id ? 'equipped' : ''}"
              onclick="_customizeEquip('${item.id}')"
              onmouseenter="_customizeRenderPreview('${item.id}')"
              onmouseleave="_customizeRenderPreview(null)">
             <div class="ci-icon">${item.icon}</div>
             <div class="ci-name">${item.name}</div>
+            ${gifted ? `<div class="ci-gifted-tag" title="Received as a gift">🎁 Gifted</div>` : ''}
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function _customizeEquip(itemId) {
@@ -200,13 +206,12 @@ function _customizeEquip(itemId) {
     _saveEquippedCosmetics();
     _customizeSwitchTab(_customizeActiveTab);
     _customizeRenderPreview(null);
-    _refreshMenuCardCosmetics();
+    _applyOwnCardBackPreview();
 }
 
 /* hoverItemId: if set, previews that one item in its class while the
-   other three classes stay as actually equipped. Pass null to show the
-   real, currently-equipped combo (e.g. after the mouse leaves an item,
-   or right after an equip/unequip). */
+   other two classes stay as actually equipped. Pass null to show the
+   real, currently-equipped combo. */
 function _customizeRenderPreview(hoverItemId) {
     const combo = Object.assign({}, _equippedCosmetics);
     if (hoverItemId) {
@@ -214,76 +219,40 @@ function _customizeRenderPreview(hoverItemId) {
         if (hovered) combo[hovered.class] = hovered.id;
     }
 
-    const cardEl = document.getElementById('customize-preview-card');
-    const hatEl  = document.getElementById('customize-preview-hat');
-    const auraEl = document.getElementById('customize-preview-aura');
-    const nameEl = document.getElementById('customize-preview-name');
-    const descEl = document.getElementById('customize-preview-desc');
-    const capEl  = document.getElementById('customize-preview-caption');
+    const cardEl   = document.getElementById('customize-preview-card');
+    const backEl   = document.getElementById('customize-preview-back');
+    const plateEl  = document.getElementById('customize-preview-nameplate');
+    const capEl    = document.getElementById('customize-preview-caption');
     if (!cardEl) return;
 
-    cardEl.style.background = (combo.card && CUSTOMIZE_CARD_SKINS[combo.card]) ? CUSTOMIZE_CARD_SKINS[combo.card] : '';
-
-    const fontFamily = (combo.font && CUSTOMIZE_FONTS[combo.font]) ? CUSTOMIZE_FONTS[combo.font] : '';
-    if (nameEl) nameEl.style.fontFamily = fontFamily;
-    if (descEl) descEl.style.fontFamily = fontFamily;
-
-    if (combo.hat) {
-        const hatItem = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : []).find(i => i.id === combo.hat);
-        if (hatEl) { hatEl.textContent = hatItem ? hatItem.icon : ''; hatEl.classList.add('on'); }
-    } else if (hatEl) {
-        hatEl.classList.remove('on');
-    }
-
-    if (combo.aura && CUSTOMIZE_AURA_RGB[combo.aura]) {
-        const rgb = CUSTOMIZE_AURA_RGB[combo.aura];
-        if (auraEl) {
-            auraEl.style.background = `radial-gradient(circle, rgba(${rgb},0.35) 0%, rgba(${rgb},0.12) 45%, transparent 72%)`;
-            auraEl.classList.add('on');
+    // Card back — shown on the reverse face of the rotating preview card.
+    if (backEl) {
+        const back = combo.cardback && CUSTOMIZE_CARDBACKS[combo.cardback];
+        if (back) {
+            backEl.style.background = back.bg;
+            backEl.style.borderColor = back.trim;
+            backEl.textContent = back.glyph;
+            backEl.classList.add('on');
+        } else {
+            backEl.classList.remove('on');
         }
-    } else if (auraEl) {
-        auraEl.classList.remove('on');
     }
 
-    _customizeUpdateCod3breakerFx(cardEl, combo.aura === 'aura_cod3breaker');
+    // Title + frame — shown on a small name-plate mock under the card.
+    if (plateEl) {
+        const displayName = (window._getDisplayName ? window._getDisplayName() : _profileData?.username) || 'Wanderer';
+        plateEl.innerHTML = renderNamePlate(displayName, combo);
+    }
 
     if (capEl) capEl.textContent = hoverItemId ? 'Previewing' : 'Currently equipped';
 }
 
-/* Cod3breaker aura: scanlines + a handful of falling matrix-code
-   columns layered directly over the card. Built once and cached on
-   the card element, then just shown/hidden as the equipped aura
-   changes (no need to rebuild the DOM every render). */
-const _cod3breakerChars = 'アカサタナ0123456789ハミラ日ロミグウ<>{}/#*'.split('');
-function _customizeUpdateCod3breakerFx(cardEl, show) {
-    if (!cardEl) return;
-    let fx = cardEl.querySelector('.cod3breaker-fx');
-    if (show && !fx) {
-        fx = document.createElement('div');
-        fx.className = 'cod3breaker-fx';
-        const cols = 10;
-        for (let i = 0; i < cols; i++) {
-            const col = document.createElement('div');
-            col.className = 'cod3breaker-col';
-            col.style.left = `${(i / cols) * 100}%`;
-            let text = '';
-            for (let r = 0; r < 40; r++) text += _cod3breakerChars[Math.floor(Math.random() * _cod3breakerChars.length)] + '\n';
-            col.textContent = text;
-            col.style.animationDuration = `${2.5 + Math.random() * 2.5}s`;
-            col.style.animationDelay = `-${Math.random() * 4}s`;
-            fx.appendChild(col);
-        }
-        cardEl.appendChild(fx);
-    }
-    if (fx) fx.classList.toggle('on', !!show);
-}
-
 /* ── Rotate the preview card in 3D within its pane ──
-   Drag horizontally to spin the card around (rotateY), drag vertically
-   to tilt it (rotateX, clamped so it can't flip upside down). Releasing
-   eases back toward a neutral resting angle instead of staying stuck
-   wherever you let go, so it reads as "spin to inspect" rather than
-   "drag it out of place". */
+   Drag horizontally to spin the card around (rotateY) and reveal the
+   equipped card back on the reverse face; drag vertically to tilt it
+   (rotateX, clamped so it can't flip upside down). Releasing eases
+   back toward a neutral resting angle instead of staying stuck
+   wherever you let go. */
 let _customizeRotY = 0, _customizeRotX = 0;
 const CUSTOMIZE_TILT_MAX = 22; // degrees, clamp on the vertical (X) axis
 
@@ -324,18 +293,14 @@ function _customizeInitRotate() {
         applyTransform();
     };
     wrap.addEventListener('pointerup', endDrag);
-    // NOTE: deliberately NOT listening for pointerleave here. wrap.setPointerCapture()
-    // above already makes pointerup fire reliably no matter where the cursor ends up —
-    // but pointerleave still fires the instant the cursor's visual position crosses the
-    // (small) card's bounding box, which happens constantly during a normal fast spin.
-    // That was ending the drag mid-motion, snapping the card back, even with the mouse
-    // button still held — i.e. exactly "I can't rotate the card". pointercancel is the
-    // correct safety net instead (only fires on genuine interruption, e.g. an OS gesture).
+    // NOTE: deliberately NOT listening for pointerleave here — see the
+    // long-standing comment history on this drag handler; setPointerCapture()
+    // makes pointerup fire reliably regardless of where the cursor ends up,
+    // while pointerleave fires far too eagerly on a small element mid-spin.
     wrap.addEventListener('pointercancel', endDrag);
 }
 
-/* Expose the equipped loadout for battle rendering to consume later
-   (e.g. game.js can read window._equippedCosmetics when drawing cards). */
+/* Expose the equipped loadout for battle rendering to consume later. */
 window.addEventListener('DOMContentLoaded', () => {
     _loadEquippedCosmetics();
     window._equippedCosmetics = _equippedCosmetics;

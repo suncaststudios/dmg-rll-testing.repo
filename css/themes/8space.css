@@ -223,6 +223,7 @@ body.theme-8space #changelog-panel {
     border-radius: 0 !important;
     box-shadow: 3px 3px 0 0 #ff2ec4 !important;
 }
+body.theme-8space .cl-titlebar { background: #131033 !important; border-bottom: 2px solid #1a1440 !important; }
 body.theme-8space .cl-titlebar-text { color: #00e5ff !important; font-family: 'Press Start 2P', monospace !important; font-size: 8px !important; }
 body.theme-8space .cl-entry { border-color: #1a1440 !important; }
 body.theme-8space .cl-version { color: #ff2ec4 !important; }
@@ -272,4 +273,16 @@ body.theme-8space {
     --die-text: #fff;
     --die-text-glow: rgba(0,229,255,0.7);
     --die-label-color: #ff00cc;
+}
+
+/* ── Profile screen theming (variable overrides only — .prf-avatar and
+   .prf-cover stay neutral so a user's own uploaded photo isn't recolored) ── */
+body.theme-8space #menu-profile {
+    --prf-bg1: #0a0722; --prf-bg2: #05030d;
+    --prf-border: #1a1440; --prf-border-dim: rgba(26,20,64,.5);
+    --prf-text-bright: #00e5ff; --prf-text-mid: #7fd8ec;
+    --prf-text-dim: #5a8ab8; --prf-text-label: #3a5a78;
+    --prf-btn-bg: #0a0722;
+    --prf-cover-a: #0a0722; --prf-cover-b: #1a1440;
+    --prf-cover-c: #05030d; --prf-cover-d: #000;
 }

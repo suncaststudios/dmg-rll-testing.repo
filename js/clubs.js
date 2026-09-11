@@ -28,10 +28,39 @@
    ---------------------------------------------------------------
    Local state:
      _clubsState.myClub  — club object the user belongs to, or null
-     _clubsState.myRole  — 'owner' | 'member' | null
+     _clubsState.myRole  — 'president' | 'vp' | 'officer' | 'member' | null
 ================================================================ */
 
 const _clubsState = { myClub: null, myRole: null, bigTab: 'myclub', subTab: 'overview' };
+
+/* Club banner background themes — applied to .club-card via inline
+   style wherever a club renders with its full card (Overview, Browse). */
+const CUSTOMIZE_CLUB_BANNERS = {
+    clubbanner_crimson:  'linear-gradient(160deg, rgba(90,10,10,0.5) 0%, rgba(20,2,2,0.2) 60%, transparent 100%)',
+    clubbanner_azure:    'linear-gradient(160deg, rgba(10,50,90,0.5) 0%, rgba(2,15,30,0.2) 60%, transparent 100%)',
+    clubbanner_verdant:  'linear-gradient(160deg, rgba(15,70,20,0.5) 0%, rgba(3,20,5,0.2) 60%, transparent 100%)',
+    clubbanner_obsidian: 'linear-gradient(160deg, rgba(20,20,25,0.65) 0%, rgba(4,4,6,0.3) 60%, transparent 100%)',
+};
+
+/* Renders a club's badge — its crest cosmetic if the president has
+   applied one, otherwise the plain emoji badge every club starts with. */
+function _clubBadgeHtml(club) {
+    if (club?.crest_id && typeof SHOP_POOL !== 'undefined') {
+        const crest = SHOP_POOL.find(i => i.id === club.crest_id && i.class === 'crest');
+        if (crest) return crest.icon;
+    }
+    return club?.badge || '⚔️';
+}
+
+/* Applies a club's banner cosmetic (if any) as a background on the
+   nearest .club-card ancestor of the given element id. */
+function _clubApplyBannerBg(elId, club) {
+    const el = document.getElementById(elId);
+    const card = el?.closest('.club-card');
+    if (!card) return;
+    const bg = club?.banner_id && CUSTOMIZE_CLUB_BANNERS[club.banner_id];
+    card.style.background = bg || '';
+}
 
 /* Sub-tabs available under each big tab. Some are conditional (settings
    only for the president, tournament/settings only while in a club) —
@@ -63,7 +92,7 @@ function switchClubsBigTab(bigTabId) {
         t.classList.toggle('active', t.id === 'clubs-bigtab-' + bigTabId));
     _clubsRenderSubTabs(bigTabId);
     // Default to that group's first (visible) sub-tab
-    const first = CLUBS_SUBTABS[bigTabId].find(s => !s.ownerOnly || _clubsState.myRole === 'owner');
+    const first = CLUBS_SUBTABS[bigTabId].find(s => !s.ownerOnly || _clubsState.myRole === 'president');
     switchClubsSubTab(first ? first.id : CLUBS_SUBTABS[bigTabId][0].id);
 }
 
@@ -71,7 +100,7 @@ function _clubsRenderSubTabs(bigTabId) {
     const bar = document.getElementById('clubs-subtabs');
     if (!bar) return;
     const inClub = !!_clubsState.myClub;
-    const isOwner = _clubsState.myRole === 'owner';
+    const isOwner = _clubsState.myRole === 'president';
     const visible = CLUBS_SUBTABS[bigTabId].filter(s =>
         (!s.ownerOnly || isOwner) && (!s.needsClub || inClub));
     bar.innerHTML = visible.map(s =>
@@ -109,7 +138,7 @@ function _clubsSetTabVisibility(inClub) {
     // If the sub-tab we were on just became unavailable (e.g. left a club
     // while on Settings), fall back to Overview instead of showing a dead panel.
     const stillVisible = CLUBS_SUBTABS[_clubsState.bigTab]
-        .some(s => s.id === _clubsState.subTab && (!s.ownerOnly || _clubsState.myRole==='owner') && (!s.needsClub || inClub));
+        .some(s => s.id === _clubsState.subTab && (!s.ownerOnly || _clubsState.myRole==='president') && (!s.needsClub || inClub));
     if (!stillVisible) switchClubsSubTab('overview');
 }
 
@@ -132,7 +161,12 @@ async function _loadMyClub() {
         if (!profile?.club_id) { _renderMyClub(null); _refreshClubQuestState(); return; }
         const club = await fsGet('clubs', profile.club_id);
         _clubsState.myClub = club || null;
-        _clubsState.myRole = club?.owner_id === _syncedUid ? 'owner' : 'member';
+        // President is derived from club.owner_id (unique, always in
+        // sync with _clubTransferPresidency below). Every other role
+        // lives on the member's own profile doc as club_role, defaulting
+        // to 'member' for anyone who's never been assigned one (e.g.
+        // everyone who joined before roles existed).
+        _clubsState.myRole = club?.owner_id === _syncedUid ? 'president' : (profile.club_role || 'member');
         _renderMyClub(club);
         _refreshClubQuestState();
     } catch(e) {
@@ -141,6 +175,189 @@ async function _loadMyClub() {
         _refreshClubQuestState();
     }
 }
+
+/* ═══════════════════ ROLES & MODERATION ══════════════════════════
+   Four roles, ranked low → high: member < officer < vp < president.
+     president — everything: edit club, assign any role, transfer
+                 presidency, kick, ban/perma-ban, mute.
+     vp        — kick, mute, and can assign the officer role only
+                 (promote member→officer or demote officer→member).
+                 Cannot edit the club or ban anyone.
+     officer   — mute (timeout) only.
+     member    — no moderation actions.
+   Only president + vp can change anyone's role; vp is restricted to
+   the officer rank in both directions. ═══════════════════════════ */
+const CLUB_ROLE_RANK  = { member: 0, officer: 1, vp: 2, president: 3 };
+const CLUB_ROLE_LABEL = { member: 'Member', officer: 'Officer', vp: 'Vice President', president: 'President' };
+const CLUB_ROLE_ICON  = { member: '', officer: '⭐', vp: '🎖', president: '👑' };
+
+function _clubCanKick(myRole)   { return myRole === 'president' || myRole === 'vp'; }
+function _clubCanBan(myRole)    { return myRole === 'president'; }
+function _clubCanMute(myRole)   { return myRole === 'president' || myRole === 'vp' || myRole === 'officer'; }
+function _clubCanEditClub(myRole) { return myRole === 'president'; }
+// What roles `myRole` is allowed to SET on someone else (assigning a
+// role never lets you touch a rank at or above your own, and vp is
+// further restricted to the officer rank specifically in both
+// directions, per spec).
+function _clubAssignableRoles(myRole) {
+    if (myRole === 'president') return ['member', 'officer', 'vp'];
+    if (myRole === 'vp')        return ['member', 'officer']; // toggle only
+    return [];
+}
+function _clubCanAssignRole(myRole, targetCurrentRole, newRole) {
+    if (myRole === 'president') return targetCurrentRole !== 'president' && newRole !== 'president';
+    if (myRole === 'vp') {
+        // VP can only move someone between member and officer.
+        return (targetCurrentRole === 'member' || targetCurrentRole === 'officer')
+            && (newRole === 'member' || newRole === 'officer');
+    }
+    return false;
+}
+
+async function _clubKickMember(uid, name) {
+    if (!_clubCanKick(_clubsState.myRole) || !_clubsState.myClub) return;
+    if (uid === _clubsState.myClub.owner_id) { alert("The president can't be kicked."); return; }
+    if (!confirm(`Kick ${name || 'this member'} from the club?`)) return;
+    try {
+        await fsSet('profiles', uid, { club_id: null, club_role: null });
+        await _clubRefreshMemberPanel();
+        if (typeof playSfx === 'function') playSfx('menuClick');
+    } catch(e) { console.warn('[DR Clubs] kick error', e); }
+}
+
+async function _clubBanMember(uid, name) {
+    if (!_clubCanBan(_clubsState.myRole) || !_clubsState.myClub) return;
+    if (uid === _clubsState.myClub.owner_id) { alert("The president can't be banned."); return; }
+    const maxHours = _clubsState.myClub.max_ban_hours || null; // null = president may set permanent
+    const input = prompt(
+        maxHours
+            ? `Ban duration in hours (permanent ban not allowed — club max is ${maxHours}h):`
+            : `Ban duration in hours (leave blank for a PERMANENT ban):`,
+        ''
+    );
+    if (input === null) return;
+    const hours = input.trim() === '' ? null : Math.max(1, parseFloat(input) || 1);
+    const cappedHours = (hours !== null && maxHours) ? Math.min(hours, maxHours) : hours;
+    const until = cappedHours === null ? null : Date.now() + cappedHours * 3600000;
+    try {
+        const club = _clubsState.myClub;
+        const banned = { ...(club.banned || {}) };
+        banned[uid] = { until, reason: '', by: _syncedUid, at: Date.now() };
+        await fsSet('clubs', club.id, { banned });
+        await fsSet('profiles', uid, { club_id: null, club_role: null });
+        club.banned = banned;
+        await _clubRefreshMemberPanel();
+        _shopToast?.(`${name || 'Member'} ${until ? 'banned' : 'permanently banned'}.`, '🔨');
+    } catch(e) { console.warn('[DR Clubs] ban error', e); }
+}
+
+async function _clubUnbanMember(uid) {
+    if (!_clubCanBan(_clubsState.myRole) || !_clubsState.myClub) return;
+    try {
+        const club = _clubsState.myClub;
+        const banned = { ...(club.banned || {}) };
+        delete banned[uid];
+        await fsSet('clubs', club.id, { banned });
+        club.banned = banned;
+        await _clubRefreshMemberPanel();
+    } catch(e) { console.warn('[DR Clubs] unban error', e); }
+}
+
+/* Checks whether `uid` is currently banned from `club` (used when
+   someone tries to join by browse/code — see joinClubById/_clubJoinByCode). */
+function _clubIsBanned(club, uid) {
+    const entry = club?.banned?.[uid];
+    if (!entry) return false;
+    if (entry.until === null) return true; // permanent
+    return Date.now() < entry.until;
+}
+
+async function _clubMuteMember(uid, name) {
+    if (!_clubCanMute(_clubsState.myRole) || !_clubsState.myClub) return;
+    if (uid === _clubsState.myClub.owner_id) { alert("The president can't be muted."); return; }
+    const maxMin = Math.round((_clubsState.myClub.max_mute_seconds || 86400) / 60);
+    const input = prompt(`Mute duration in minutes (club max: ${maxMin}m):`, Math.min(30, maxMin));
+    if (input === null) return;
+    const minutes = Math.max(1, Math.min(maxMin, parseFloat(input) || 1));
+    const until = Date.now() + minutes * 60000;
+    try {
+        await fsSet('profiles', uid, { club_mute_until: until });
+        await _clubRefreshMemberPanel();
+        _shopToast?.(`${name || 'Member'} muted for ${minutes}m.`, '🔇');
+    } catch(e) { console.warn('[DR Clubs] mute error', e); }
+}
+
+async function _clubUnmuteMember(uid) {
+    if (!_clubCanMute(_clubsState.myRole)) return;
+    try {
+        await fsSet('profiles', uid, { club_mute_until: null });
+        await _clubRefreshMemberPanel();
+    } catch(e) { console.warn('[DR Clubs] unmute error', e); }
+}
+
+async function _clubSetMemberRole(uid, targetCurrentRole, newRole, name) {
+    if (!_clubsState.myClub) return;
+    if (!_clubCanAssignRole(_clubsState.myRole, targetCurrentRole, newRole)) {
+        alert("You don't have permission to assign that role.");
+        return;
+    }
+    try {
+        await fsSet('profiles', uid, { club_role: newRole === 'member' ? null : newRole });
+        await _clubRefreshMemberPanel();
+        _shopToast?.(`${name || 'Member'} is now ${CLUB_ROLE_LABEL[newRole]}.`, '🎖');
+    } catch(e) { console.warn('[DR Clubs] set role error', e); }
+}
+
+/* Presidency transfer — irreversible from the outgoing president's
+   side (per spec: explicit confirm, no way to get it back except the
+   new president transferring it back to them manually). The outgoing
+   president becomes Vice President rather than being fully demoted. */
+async function _clubTransferPresidency(uid, name) {
+    if (_clubsState.myRole !== 'president' || !_clubsState.myClub) return;
+    const ok = confirm(
+        `Transfer presidency of ${_clubsState.myClub.name} to ${name || 'this member'}?\n\n` +
+        `You will become Vice President and CANNOT get the club back unless the new president gives it to you. This cannot be undone. Continue?`
+    );
+    if (!ok) return;
+    try {
+        const club = _clubsState.myClub;
+        await fsSet('clubs', club.id, { owner_id: uid });
+        await fsSet('profiles', uid, { club_role: null }); // new president — role derived from owner_id
+        await fsSet('profiles', _syncedUid, { club_role: 'vp' });
+        club.owner_id = uid;
+        _clubsState.myRole = 'vp';
+        await _clubRefreshMemberPanel();
+        _renderMyClub(club);
+        _shopToast?.(`Presidency transferred to ${name || 'the new president'}.`, '👑');
+    } catch(e) { console.warn('[DR Clubs] transfer presidency error', e); }
+}
+
+async function _clubRefreshMemberPanel() {
+    if (!_clubsState.myClub) return;
+    try {
+        const members = await fsWhere('profiles', 'club_id', _clubsState.myClub.id, 250);
+        _renderClubMemberList(members, _clubsState.myClub);
+    } catch(e) { console.warn('[DR Clubs] refresh member panel error', e); }
+}
+
+/* Club chat mute check — call before sending a message. Fetches the
+   sender's own profile fresh (rather than trusting a local cache)
+   since a mute can be applied by an officer/VP/president at any time
+   from another client. Returns a user-facing reason string if muted,
+   or null if clear to post. */
+async function _clubMuteBlockReason() {
+    if (!_syncedUid) return null;
+    try {
+        const profile = await fsGet('profiles', _syncedUid);
+        const until = profile?.club_mute_until;
+        if (until && Date.now() < until) {
+            const mins = Math.ceil((until - Date.now()) / 60000);
+            return `You're muted in club chat for another ${mins}m.`;
+        }
+    } catch(e) {}
+    return null;
+}
+
 
 /* Re-syncs the club quest system (quests.js) whenever club membership is
    confirmed or changes — join, leave, create, disband, initial login.
@@ -159,7 +376,7 @@ function _refreshClubQuestState() {
    uniqueness). */
 
 function _clubSettingsPopulate() {
-    if (_clubsState.myRole !== 'owner' || !_clubsState.myClub) return;
+    if (_clubsState.myRole !== 'president' || !_clubsState.myClub) return;
     const club = _clubsState.myClub;
     const nameEl  = document.getElementById('cs-edit-name');
     const tagEl   = document.getElementById('cs-edit-tag');
@@ -171,8 +388,14 @@ function _clubSettingsPopulate() {
     if (badgeEl) badgeEl.value = club.badge || '⚔️';
     if (descEl)  descEl.value  = club.description || '';
     if (maxEl)   maxEl.value   = club.max_members || 50;
+    const maxMuteEl = document.getElementById('cs-max-mute-input');
+    const maxBanEl  = document.getElementById('cs-max-ban-input');
+    if (maxMuteEl) maxMuteEl.value = Math.round((club.max_mute_seconds || 86400) / 60);
+    if (maxBanEl)  maxBanEl.value  = club.max_ban_hours || '';
     document.querySelectorAll('#cs-edit-visibility .settings-opt-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.val === (club.visibility || 'public')));
+    _clubInviteCodeRefreshVisibility();
+    _clubRenderClubCosmeticsPicker();
     _clubSetTxt('cs-edit-status', '');
     _clubSetTxt('cs-danger-status', '');
     _clubSettingsSwitchTab('content');
@@ -181,6 +404,162 @@ function _clubSettingsPopulate() {
 function _clubSettingsSelectVisibility(btn) {
     document.querySelectorAll('#cs-edit-visibility .settings-opt-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    _clubInviteCodeRefreshVisibility();
+}
+
+function _clubInviteCodeRefreshVisibility() {
+    const block = document.getElementById('cs-invite-code-block');
+    if (!block) return;
+    const visBtn = document.querySelector('#cs-edit-visibility .settings-opt-btn.active');
+    const isInvite = (visBtn?.dataset.val || 'public') === 'invite';
+    block.style.display = isInvite ? '' : 'none';
+    if (isInvite) {
+        const valEl = document.getElementById('cs-invite-code-val');
+        if (valEl) valEl.textContent = _clubsState.myClub?.invite_code || '——————';
+    }
+}
+
+function _clubGenInviteCodeStr() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — easy to misread
+    let out = '';
+    for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+}
+
+async function _clubRegenInviteCode() {
+    const status = document.getElementById('cs-invite-code-status');
+    if (_clubsState.myRole !== 'president' || !_clubsState.myClub) { if (status) status.textContent = 'Only the club president can do this.'; return; }
+    const code = _clubGenInviteCodeStr();
+    if (status) status.textContent = 'Generating…';
+    try {
+        const { error } = await fsSet('clubs', _clubsState.myClub.id, { invite_code: code });
+        if (error) { if (status) status.textContent = 'Error — try again.'; return; }
+        _clubsState.myClub.invite_code = code;
+        const valEl = document.getElementById('cs-invite-code-val');
+        if (valEl) valEl.textContent = code;
+        if (status) status.textContent = 'New code generated!';
+        if (typeof playSfx === 'function') playSfx('menuClick');
+    } catch(e) {
+        if (status) status.textContent = 'Error — try again.';
+        console.warn('[DR Clubs] _clubRegenInviteCode error', e);
+    }
+}
+
+function _clubCopyInviteCode() {
+    const code = _clubsState.myClub?.invite_code;
+    const status = document.getElementById('cs-invite-code-status');
+    if (!code) { if (status) status.textContent = 'Generate a code first.'; return; }
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(code).then(() => { if (status) status.textContent = 'Copied!'; });
+    } else if (status) {
+        status.textContent = code; // clipboard API unavailable — at least show it plainly
+    }
+}
+
+function _clubJoinCodeToggle() {
+    const block = document.getElementById('clubs-joincode-block');
+    if (!block) return;
+    block.style.display = block.style.display === 'none' ? '' : 'none';
+}
+
+/* ── Club cosmetics (crest + banner) ──
+   Personally owned (via the shop, same as titles/frames/card backs)
+   but only the president can APPLY one to the whole club. Spending
+   stays personal — the president buys the item for themselves, then
+   donates its visual to the club by applying it here. */
+function _clubRenderClubCosmeticsPicker() {
+    const wrap = document.getElementById('cs-club-cosmetics-list');
+    if (!wrap || !_clubsState.myClub) return;
+    const club = _clubsState.myClub;
+
+    const ownedCrests  = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : []).filter(i => i.class === 'crest'      && typeof _shopOwned !== 'undefined' && _shopOwned.has(i.id));
+    const ownedBanners = (typeof SHOP_POOL !== 'undefined' ? SHOP_POOL : []).filter(i => i.class === 'clubbanner' && typeof _shopOwned !== 'undefined' && _shopOwned.has(i.id));
+
+    const section = (label, items, currentId, applyFn, clearFn) => `
+        <div style="margin-bottom:12px;">
+            <div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#8a6535;margin-bottom:6px;">${label}</div>
+            ${items.length ? `
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    ${items.map(i => `
+                        <button class="clubs-search-btn" style="padding:6px 10px;font-size:8px; ${currentId===i.id?'background:rgba(232,200,112,0.25);border-color:#e8c870;':''}"
+                            onclick="${applyFn}('${i.id}')">${i.icon} ${i.name}</button>
+                    `).join('')}
+                    ${currentId ? `<button class="clubs-search-btn" style="padding:6px 10px;font-size:8px;background:rgba(60,20,10,0.6);" onclick="${clearFn}()">✕ Clear</button>` : ''}
+                </div>` : `<div style="font-size:9px;color:rgba(100,65,20,0.5);">You don't own any yet — check the Shop's Cosmetics tab.</div>`}
+        </div>`;
+
+    wrap.innerHTML =
+        section('Crest', ownedCrests, club.crest_id, '_clubApplyCrest', '_clubClearCrest') +
+        section('Banner', ownedBanners, club.banner_id, '_clubApplyBanner', '_clubClearBanner');
+}
+
+async function _clubApplyCrest(itemId) {
+    if (!_clubCanEditClub(_clubsState.myRole) || !_clubsState.myClub) return;
+    try {
+        await fsSet('clubs', _clubsState.myClub.id, { crest_id: itemId });
+        _clubsState.myClub.crest_id = itemId;
+        _clubRenderClubCosmeticsPicker();
+        _renderMyClub(_clubsState.myClub);
+        if (typeof playSfx === 'function') playSfx('equipItem');
+    } catch(e) { console.warn('[DR Clubs] apply crest error', e); }
+}
+async function _clubClearCrest() {
+    if (!_clubCanEditClub(_clubsState.myRole) || !_clubsState.myClub) return;
+    try {
+        await fsSet('clubs', _clubsState.myClub.id, { crest_id: null });
+        _clubsState.myClub.crest_id = null;
+        _clubRenderClubCosmeticsPicker();
+        _renderMyClub(_clubsState.myClub);
+    } catch(e) { console.warn('[DR Clubs] clear crest error', e); }
+}
+async function _clubApplyBanner(itemId) {
+    if (!_clubCanEditClub(_clubsState.myRole) || !_clubsState.myClub) return;
+    try {
+        await fsSet('clubs', _clubsState.myClub.id, { banner_id: itemId });
+        _clubsState.myClub.banner_id = itemId;
+        _clubRenderClubCosmeticsPicker();
+        _renderMyClub(_clubsState.myClub);
+        if (typeof playSfx === 'function') playSfx('equipItem');
+    } catch(e) { console.warn('[DR Clubs] apply banner error', e); }
+}
+async function _clubClearBanner() {
+    if (!_clubCanEditClub(_clubsState.myRole) || !_clubsState.myClub) return;
+    try {
+        await fsSet('clubs', _clubsState.myClub.id, { banner_id: null });
+        _clubsState.myClub.banner_id = null;
+        _clubRenderClubCosmeticsPicker();
+        _renderMyClub(_clubsState.myClub);
+    } catch(e) { console.warn('[DR Clubs] clear banner error', e); }
+}
+
+
+async function _clubJoinByCode() {
+    const status = document.getElementById('clubs-joincode-status');
+    const input  = document.getElementById('clubs-joincode-input');
+    const code   = (input?.value || '').trim().toUpperCase();
+    if (!_syncedUid) { if (status) status.textContent = 'Sign in to join a club.'; return; }
+    if (_clubsState.myClub) { if (status) status.textContent = 'Leave your current club first.'; return; }
+    if (!code) { if (status) status.textContent = 'Enter a code.'; return; }
+    if (status) status.textContent = 'Checking…';
+    try {
+        const matches = await fsWhere('clubs', 'invite_code', code, 1);
+        if (!matches.length) { if (status) status.textContent = 'No club found with that code.'; return; }
+        const club = matches[0];
+        if (_clubIsBanned(club, _syncedUid)) { if (status) status.textContent = 'You are banned from this club.'; return; }
+        const cap = club.max_members || 50;
+        const members = await fsWhere('profiles', 'club_id', club.id, 250);
+        if (members.length >= cap) { if (status) status.textContent = `${club.name} is full (${cap}/${cap} members).`; return; }
+
+        await fsSet('profiles', _syncedUid, { club_id: club.id });
+        await _loadMyClub();
+        switchClubsBigTab('myclub');
+        if (typeof playSfx === 'function') playSfx('clubJoin');
+        if (status) status.textContent = '';
+        if (input) input.value = '';
+    } catch(e) {
+        if (status) status.textContent = 'Error — try again.';
+        console.warn('[DR Clubs] _clubJoinByCode error', e);
+    }
 }
 
 function _clubSettingsSwitchTab(tab) {
@@ -197,7 +576,7 @@ function _clubSettingsSwitchTab(tab) {
 
 async function _clubSettingsSave() {
     const status = document.getElementById('cs-edit-status');
-    if (_clubsState.myRole !== 'owner' || !_clubsState.myClub) { if (status) status.textContent = 'Only the club president can edit this.'; return; }
+    if (_clubsState.myRole !== 'president' || !_clubsState.myClub) { if (status) status.textContent = 'Only the club president can edit this.'; return; }
     const club   = _clubsState.myClub;
     const name   = (document.getElementById('cs-edit-name')?.value  || '').trim();
     const tag    = (document.getElementById('cs-edit-tag')?.value   || '').trim().toUpperCase();
@@ -207,6 +586,10 @@ async function _clubSettingsSave() {
     const maxMembers = Number.isFinite(maxMembersRaw) ? Math.min(200, Math.max(2, maxMembersRaw)) : 50;
     const visBtn = document.querySelector('#cs-edit-visibility .settings-opt-btn.active');
     const visibility = visBtn?.dataset.val || 'public';
+    const maxMuteMinRaw = parseInt(document.getElementById('cs-max-mute-input')?.value, 10);
+    const maxMuteSeconds = Number.isFinite(maxMuteMinRaw) ? Math.min(10080, Math.max(1, maxMuteMinRaw)) * 60 : 86400;
+    const maxBanHoursRaw = parseFloat(document.getElementById('cs-max-ban-input')?.value);
+    const maxBanHours = Number.isFinite(maxBanHoursRaw) && maxBanHoursRaw > 0 ? maxBanHoursRaw : null; // null = permanent bans allowed
     if (!name)          { if (status) status.textContent = 'Club name required.';     return; }
     if (tag.length < 3) { if (status) status.textContent = 'Tag must be 3–5 chars.'; return; }
 
@@ -225,10 +608,10 @@ async function _clubSettingsSave() {
             if (nameTaken.length && nameTaken[0].id !== club.id) { if (status) status.textContent = 'That name is already taken.'; return; }
         }
 
-        const { error } = await fsUpdate('clubs', club.id, { name, tag, badge, description: desc, max_members: maxMembers, visibility });
+        const { error } = await fsUpdate('clubs', club.id, { name, tag, badge, description: desc, max_members: maxMembers, visibility, max_mute_seconds: maxMuteSeconds, max_ban_hours: maxBanHours });
         if (error) { if (status) status.textContent = error.message || 'Error — try again.'; return; }
 
-        Object.assign(_clubsState.myClub, { name, tag, badge, description: desc, max_members: maxMembers, visibility });
+        Object.assign(_clubsState.myClub, { name, tag, badge, description: desc, max_members: maxMembers, visibility, max_mute_seconds: maxMuteSeconds, max_ban_hours: maxBanHours });
         _renderMyClub(_clubsState.myClub);
         if (status) status.textContent = 'Saved!';
     } catch(e) {
@@ -239,7 +622,7 @@ async function _clubSettingsSave() {
 
 async function _clubSettingsDelete() {
     const status = document.getElementById('cs-danger-status');
-    if (_clubsState.myRole !== 'owner' || !_clubsState.myClub) { if (status) status.textContent = 'Only the club president can do this.'; return; }
+    if (_clubsState.myRole !== 'president' || !_clubsState.myClub) { if (status) status.textContent = 'Only the club president can do this.'; return; }
     const club = _clubsState.myClub;
     if (!confirm(`Disband ${club.name}? This removes every member and cannot be undone.`)) return;
 
@@ -249,7 +632,7 @@ async function _clubSettingsDelete() {
         // profile has to happen explicitly, or they'd be left pointing at
         // a club document that no longer exists.
         const members = await fsWhere('profiles', 'club_id', club.id, 200);
-        await Promise.all(members.map(m => fsUpdate('profiles', m.id, { club_id: null })));
+        await Promise.all(members.map(m => fsSet('profiles', m.id, { club_id: null })));
         await fsDelete('clubs', club.id);
 
         _clubsState.myClub = null;
@@ -276,7 +659,8 @@ function _renderMyClub(club) {
     }
     if (noClub) noClub.style.display = 'none';
     if (myCard) myCard.style.display = '';
-    _clubSetTxt('my-club-badge',    club.badge || '⚔️');
+    _clubSetTxt('my-club-badge',    _clubBadgeHtml(club));
+    _clubApplyBannerBg('my-club-badge', club);
     _clubSetTxt('my-club-name',     club.name);
     _clubSetTxt('my-club-tag',      '#' + club.tag);
     _clubSetTxt('my-club-desc',     club.description || '');
@@ -287,14 +671,14 @@ function _renderMyClub(club) {
     // The "My Club" big tab shows the actual club's name for members
     // (presidents keep seeing "My Club", since it's unambiguously theirs).
     const bigTabEl = document.getElementById('clubs-bigtab-myclub');
-    if (bigTabEl) bigTabEl.textContent = (_clubsState.myRole === 'owner') ? 'My Club' : club.name;
+    if (bigTabEl) bigTabEl.textContent = (_clubsState.myRole === 'president') ? 'My Club' : club.name;
 
     // Presidents can't leave — they have to disband instead (Danger Zone,
     // under Settings). Showing "Leave" and then telling them "no, disband
     // instead" after they click it was just confusing, so it's hidden
     // outright for the president rather than shown-then-blocked.
     const leaveBtn = document.getElementById('clubs-leave-btn');
-    if (leaveBtn) leaveBtn.style.display = (_clubsState.myRole === 'owner') ? 'none' : '';
+    if (leaveBtn) leaveBtn.style.display = (_clubsState.myRole === 'president') ? 'none' : '';
 
     // Member count + global rank — previously left permanently at their
     // hardcoded "0"/"#—" placeholders since nothing ever populated them.
@@ -312,7 +696,18 @@ async function _loadClubRanking() {
     const list = document.getElementById('clubs-rank-list');
     if (!list) return;
     try {
-        const ranked = await fsList('clubs', { orderByField: 'trophies', ascending: false, limit: 500 });
+        const rankedAll = await fsList('clubs', { orderByField: 'trophies', ascending: false, limit: 500 });
+        // This ranking list had no visibility filter at all, so an
+        // invite-only club still showed up here (with its name, tag,
+        // and trophy count) to every player browsing the global rankings
+        // — the exact "invite-only doesn't disappear from browse" leak,
+        // just via this tab instead of the Browse search tab (which
+        // already filtered correctly). Keep your own club visible in
+        // this view regardless of its visibility, same as the Browse
+        // tab's exact-match carve-out, so a president can still see and
+        // click into their own invite-only club's rank.
+        const myId = _clubsState.myClub?.id;
+        const ranked = rankedAll.filter(c => c.visibility !== 'invite' || c.id === myId);
         if (!ranked.length) {
             list.innerHTML = `<div class="clubs-auth-notice">
                 <div class="clubs-auth-icon">🏆</div>
@@ -321,7 +716,6 @@ async function _loadClubRanking() {
             </div>`;
             return;
         }
-        const myId = _clubsState.myClub?.id;
         const myIdx = myId ? ranked.findIndex(c => c.id === myId) : -1;
         // In a club: show 4 above + your club + 4 below. Not in one (or
         // not found in the batch): just show the top 10 instead.
@@ -418,7 +812,7 @@ async function searchClubs() {
         out.innerHTML = clubs.map(c => `
             <div class="club-card club-browse-card" id="club-browse-browse-${_clubEsc(c.id)}" style="cursor:pointer;" onclick="_clubBrowseToggle('${_clubEsc(c.id)}','browse')">
                 <div class="club-card-header">
-                    <div class="club-badge">${c.badge||'⚔️'}</div>
+                    <div class="club-badge">${_clubBadgeHtml(c)}</div>
                     <div class="club-info">
                         <div class="club-name">${_clubEsc(c.name)}</div>
                         <div class="club-meta">${c.wins??0} wins · ${c.trophies??0} trophies</div>
@@ -539,9 +933,14 @@ async function createClub() {
         // Firestore via _loadMyClub(), and a fire-and-forget write here
         // could easily lose that race, making a freshly-created club
         // "disappear" until the write eventually landed.
-        await fsUpdate('profiles', _syncedUid, { club_id: clubId });
+        //
+        // fsSet (merge), not fsUpdate — fsUpdate throws "No document to
+        // update" if this account's profiles/{uid} doc doesn't exist yet
+        // (e.g. a newer account that hasn't triggered a profile write
+        // before), and fsSet creates it on demand instead of failing.
+        await fsSet('profiles', _syncedUid, { club_id: clubId });
         _clubsState.myClub = club;
-        _clubsState.myRole = 'owner';
+        _clubsState.myRole = 'president';
         _refreshClubQuestState();
         if (statusEl) statusEl.textContent = 'Club founded!';
         if (typeof playSfx === 'function') playSfx('clubCreate');
@@ -562,10 +961,15 @@ async function joinClubById(clubId) {
             fsWhere('profiles', 'club_id', clubId, 250),
         ]);
         if (!club) { _showGoldToast('Club not found.'); return; }
+        if (_clubIsBanned(club, _syncedUid)) { _showGoldToast('You are banned from this club.'); return; }
         const cap = club.max_members || 50;
         if (members.length >= cap) { _showGoldToast(`${club.name} is full (${cap}/${cap} members).`); return; }
 
-        await fsUpdate('profiles', _syncedUid, { club_id: clubId });
+        // fsSet (merge), not fsUpdate — see the comment in createClub
+        // above; this is exactly the "No document to update" failure
+        // reported when joining a club as an account whose profiles/{uid}
+        // doc hadn't been created yet.
+        await fsSet('profiles', _syncedUid, { club_id: clubId });
         await _loadMyClub();
         switchClubsBigTab('myclub');
         if (typeof playSfx === 'function') playSfx('clubJoin');
@@ -574,14 +978,14 @@ async function joinClubById(clubId) {
 
 async function leaveClub() {
     if (!_syncedUid || !_clubsState.myClub) return;
-    if (_clubsState.myRole === 'owner') {
+    if (_clubsState.myRole === 'president') {
         if (typeof _showGoldToast === 'function') _showGoldToast('Presidents must disband the club instead of leaving.');
         else alert('Presidents must disband the club instead of leaving.');
         return;
     }
     if (!confirm('Leave ' + _clubsState.myClub.name + '?')) return;
     try {
-        await fsUpdate('profiles', _syncedUid, { club_id: null });
+        await fsSet('profiles', _syncedUid, { club_id: null });
         _clubsState.myClub = null;
         _clubsState.myRole = null;
         _renderMyClub(null);
@@ -599,17 +1003,56 @@ function _renderClubMemberList(members, club) {
     if (!list) return;
     if (!members.length) { list.innerHTML = '<div style="font-size:9px;color:rgba(100,65,20,0.5);">No members found.</div>'; return; }
 
+    const myRole = _clubsState.myRole;
+    const roleRank = r => CLUB_ROLE_RANK[r] ?? 0;
+
     const sorted = [...members].sort((a, b) => {
         if (a.id === club.owner_id) return -1;
         if (b.id === club.owner_id) return 1;
+        const ra = a.id === club.owner_id ? 'president' : (a.club_role || 'member');
+        const rb = b.id === club.owner_id ? 'president' : (b.club_role || 'member');
+        if (roleRank(rb) !== roleRank(ra)) return roleRank(rb) - roleRank(ra);
         return (b.wins || 0) - (a.wins || 0);
     });
-    list.innerHTML = sorted.map(m => `
-        <div class="clubs-member-row" onclick="_lobbyViewProfile('${_clubEsc(m.id)}')">
-            <span class="clubs-member-avatar">${m.avatar || '⚔️'}</span>
-            <span class="clubs-member-name">${_clubEsc(m.username || 'Wanderer')}</span>
-            ${m.id === club.owner_id ? '<span class="clubs-member-crown" title="President">👑</span>' : ''}
-        </div>`).join('');
+
+    list.innerHTML = sorted.map(m => {
+        const isPresident = m.id === club.owner_id;
+        const targetRole = isPresident ? 'president' : (m.club_role || 'member');
+        const escapedName = _clubEsc(m.username || 'Wanderer');
+        const namePlate = typeof renderNamePlate === 'function' ? renderNamePlate(escapedName, m.equipped_cosmetics) : escapedName;
+        const isSelf = m.id === _syncedUid;
+        const muted = m.club_mute_until && Date.now() < m.club_mute_until;
+
+        // Moderation menu — only rendered for members someone with
+        // permission could actually act on (never yourself, never the
+        // president since president can't be kicked/banned/muted/role-
+        // changed by anyone else).
+        let actions = '';
+        if (!isSelf && !isPresident) {
+            const roleOptions = _clubAssignableRoles(myRole)
+                .filter(r => _clubCanAssignRole(myRole, targetRole, r))
+                .map(r => `<option value="${r}" ${r===targetRole?'selected':''}>${CLUB_ROLE_LABEL[r]}</option>`).join('');
+            actions = `
+                <div class="clubs-member-actions" onclick="event.stopPropagation()">
+                    ${roleOptions ? `<select class="clubs-member-role-select" onchange="_clubSetMemberRole('${m.id}','${targetRole}',this.value,'${escapedName.replace(/'/g,"\\'")}')">${roleOptions}</select>` : ''}
+                    ${_clubCanMute(myRole) ? (muted
+                        ? `<button class="clubs-member-action-btn" onclick="_clubUnmuteMember('${m.id}')" title="Unmute">🔊</button>`
+                        : `<button class="clubs-member-action-btn" onclick="_clubMuteMember('${m.id}','${escapedName.replace(/'/g,"\\'")}')" title="Mute">🔇</button>`) : ''}
+                    ${_clubCanKick(myRole) ? `<button class="clubs-member-action-btn" onclick="_clubKickMember('${m.id}','${escapedName.replace(/'/g,"\\'")}')" title="Kick">👢</button>` : ''}
+                    ${_clubCanBan(myRole) ? `<button class="clubs-member-action-btn" onclick="_clubBanMember('${m.id}','${escapedName.replace(/'/g,"\\'")}')" title="Ban">🔨</button>` : ''}
+                    ${myRole === 'president' ? `<button class="clubs-member-action-btn" onclick="_clubTransferPresidency('${m.id}','${escapedName.replace(/'/g,"\\'")}')" title="Transfer Presidency">👑</button>` : ''}
+                </div>`;
+        }
+
+        return `
+        <div class="clubs-member-row">
+            <span class="clubs-member-avatar" onclick="_lobbyViewProfile('${_clubEsc(m.id)}')" style="cursor:pointer;">${m.avatar || '⚔️'}</span>
+            <span class="clubs-member-name" onclick="_lobbyViewProfile('${_clubEsc(m.id)}')" style="cursor:pointer;">${namePlate}</span>
+            ${CLUB_ROLE_ICON[targetRole] ? `<span class="clubs-member-role-badge" title="${CLUB_ROLE_LABEL[targetRole]}">${CLUB_ROLE_ICON[targetRole]}</span>` : ''}
+            ${muted ? '<span title="Muted">🔇</span>' : ''}
+            ${actions}
+        </div>`;
+    }).join('');
 }
 
 function _clubSetTxt(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
@@ -652,11 +1095,15 @@ function _closeClubChat() {
     if (_clubChatChannel) { _clubChatChannel.unsubscribe(); _clubChatChannel = null; }
 }
 
-function sendClubChatMessage() {
+async function sendClubChatMessage() {
     const input = document.getElementById('club-chat-input');
     if (!input || !_clubChatChannel) return;
     const text = input.value.trim();
     if (!text) return;
+
+    const blockReason = await _clubMuteBlockReason();
+    if (blockReason) { if (typeof _shopToast === 'function') _shopToast(blockReason, '🔇'); return; }
+
     const msg = {
         uid:  _syncedUid || _getOnlineUid?.(),
         name: (typeof _getDisplayName === 'function') ? _getDisplayName() : 'Wanderer',
@@ -779,7 +1226,7 @@ function _renderClubTournaments(rows) {
             return `
             <div class="club-card" style="gap:8px;">
                 <div class="club-card-header">
-                    <div class="club-badge">${us?.badge || '⚔️'}</div>
+                    <div class="club-badge">${_clubBadgeHtml(us)}</div>
                     <div class="club-info">
                         <div class="club-name">${_clubEsc(us?.name || '?')} vs ${_clubEsc(them?.name || '?')}</div>
                         <div class="club-meta">Best of ${t.rounds} · First to ${need} wins</div>
@@ -807,7 +1254,7 @@ function _renderClubTournaments(rows) {
             return `
             <div class="club-card" style="gap:8px;">
                 <div class="club-card-header">
-                    <div class="club-badge">${other?.badge || '⚔️'}</div>
+                    <div class="club-badge">${_clubBadgeHtml(other)}</div>
                     <div class="club-info">
                         <div class="club-name">${isChallenger ? 'You challenged' : 'Challenge from'} ${_clubEsc(other?.name || '?')}</div>
                         <div class="club-meta">#${_clubEsc(other?.tag || '?')} · Best of ${t.rounds}</div>

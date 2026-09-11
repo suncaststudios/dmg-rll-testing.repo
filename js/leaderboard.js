@@ -42,16 +42,16 @@ async function _fetchLbTab(id) {
             rows = data.map((r,i) => {
                 const tier = typeof levelTier === 'function' ? levelTier(r.level||1) : { label:'Iron', icon:'⚙️' };
                 return _lbRow(i, r.avatar||'⚔️', r.username||'Wanderer',
-                    `${tier.icon} Lv.${r.level||1} ${tier.label}`, r.xp??0, 'XP', r.id);
+                    `${tier.icon} Lv.${r.level||1} ${tier.label}`, r.xp??0, 'XP', r.id, r.avatar_img, r.equipped_cosmetics);
             });
         } else if (id === 'most-wins') {
             const data = await fsList('profiles', { orderByField: 'wins', ascending: false, limit: 20 });
             rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
-                null, r.wins??0, 'wins', r.id));
+                null, r.wins??0, 'wins', r.id, r.avatar_img, r.equipped_cosmetics));
         } else if (id === 'most-losses') {
             const data = await fsList('profiles', { orderByField: 'losses', ascending: false, limit: 20 });
             rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
-                null, r.losses??0, 'losses', r.id));
+                null, r.losses??0, 'losses', r.id, r.avatar_img, r.equipped_cosmetics));
         } else if (id === 'club-rank') {
             const data = await fsList('clubs', { orderByField: 'trophies', ascending: false, limit: 20 });
             rows = data.map((r,i) => _lbRow(i, r.badge||'\u2694\uFE0F', r.name||'Unknown',
@@ -59,7 +59,7 @@ async function _fetchLbTab(id) {
         } else if (id === 'tournaments') {
             const data = await fsList('profiles', { orderByField: 'tournaments_won', ascending: false, limit: 20 });
             rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
-                null, r.tournaments_won??0, 'won', r.id));
+                null, r.tournaments_won??0, 'won', r.id, r.avatar_img, r.equipped_cosmetics));
         } else if (id === 'speedrun') {
             // Firestore's orderBy naturally excludes docs that don't have
             // the field set at all, which is exactly the "only show
@@ -67,11 +67,11 @@ async function _fetchLbTab(id) {
             // `.not('best_time','is',null)` was doing.
             const data = await fsList('profiles', { orderByField: 'best_time', ascending: true, limit: 20 });
             rows = data.filter(r => r.best_time != null).map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
-                null, _lbFormatTime(r.best_time), 'fastest win', r.id));
+                null, _lbFormatTime(r.best_time), 'fastest win', r.id, r.avatar_img, r.equipped_cosmetics));
         } else if (id === 'challenges') {
             const data = await fsList('profiles', { orderByField: 'challenges_completed', ascending: false, limit: 20 });
             rows = data.map((r,i) => _lbRow(i, r.avatar||'\u2694\uFE0F', r.username||'Wanderer',
-                null, r.challenges_completed??0, 'challenges', r.id));
+                null, r.challenges_completed??0, 'challenges', r.id, r.avatar_img, r.equipped_cosmetics));
         }
 
         if (rows.length === 0) {
@@ -93,14 +93,24 @@ function _lbFormatTime(sec) {
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function _lbRow(index, avatar, name, sub, value, unit, uid) {
+function _lbRow(index, avatar, name, sub, value, unit, uid, avatarImg, cosmetics) {
     const rankClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
     const isSelf = uid && uid === _syncedUid;
+    // Same fallback pattern as profile.js: a custom uploaded photo
+    // (avatar_img) takes priority over the emoji avatar. The emoji field
+    // never gets cleared when someone uploads a real photo, so reading
+    // only `avatar` here meant everyone with a custom pfp still showed
+    // the default ⚔️ on the leaderboard.
+    const avatarHtml = avatarImg
+        ? `<img src="${avatarImg}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
+        : avatar;
+    const escapedName = _clubEsc(name);
+    const namePlate = typeof renderNamePlate === 'function' ? renderNamePlate(escapedName, cosmetics) : escapedName;
     return `<div class="lb-row${isSelf?' is-self':''}">
         <span class="lb-rank ${rankClass}">${index+1}</span>
-        <span class="lb-avatar">${avatar}</span>
+        <span class="lb-avatar">${avatarHtml}</span>
         <span class="lb-name-col">
-            <span class="lb-name">${_clubEsc(name)}${isSelf?' <span style="color:#c8a460;font-size:7px;">(you)</span>':''}</span>
+            <span class="lb-name">${namePlate}${isSelf?' <span style="color:#c8a460;font-size:7px;">(you)</span>':''}</span>
             ${sub ? `<span class="lb-sub">${_clubEsc(sub)}</span>` : ''}
         </span>
         <span class="lb-value">${value}<span>${unit}</span></span>

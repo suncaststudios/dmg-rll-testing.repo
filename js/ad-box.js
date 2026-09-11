@@ -149,6 +149,13 @@ function _adBoxOpenModal() {
     _adModalRender();
     const overlay = document.getElementById('ad-modal-overlay');
     if (overlay) overlay.classList.add('open');
+    // #changelog-panel is `position: fixed` at the page level, outside
+    // #game-container, so it sits in the root stacking context and isn't
+    // covered by the ad modal's overlay (which is confined to
+    // #game-container's box/stacking context). Dim it explicitly the
+    // same way game.js does while a match is running.
+    const changelog = document.getElementById('changelog-panel');
+    if (changelog) changelog.classList.add('cl-dimmed');
     if (typeof playSfx === 'function') playSfx('menuClick');
 }
 
@@ -156,6 +163,8 @@ function _adModalClose() {
     _adModalOpen = false;
     const overlay = document.getElementById('ad-modal-overlay');
     if (overlay) overlay.classList.remove('open');
+    const changelog = document.getElementById('changelog-panel');
+    if (changelog) changelog.classList.remove('cl-dimmed');
     _adBoxUpdateVisibility();
 }
 

@@ -232,6 +232,7 @@ body.theme-cyberpunk #changelog-panel {
     border-color: rgba(255,0,155,.4) !important;
     border-radius: 0 !important;
 }
+body.theme-cyberpunk .cl-titlebar { background: linear-gradient(180deg, rgba(22,0,44,.98), rgba(10,0,20,.99)) !important; border-bottom: 1px solid rgba(255,0,155,.4) !important; }
 body.theme-cyberpunk .cl-titlebar-text { color: #ff88d0 !important; font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 2px !important; }
 body.theme-cyberpunk .cl-entry { border-color: rgba(255,0,155,.2) !important; }
 body.theme-cyberpunk .cl-version { color: #00ddff !important; }
@@ -280,4 +281,16 @@ body.theme-cyberpunk {
     --die-text: #fff0fb;
     --die-text-glow: rgba(255,0,180,0.7);
     --die-label-color: rgba(0,215,255,0.85);
+}
+
+/* ── Profile screen theming (variable overrides only — .prf-avatar and
+   .prf-cover stay neutral so a user's own uploaded photo isn't recolored) ── */
+body.theme-cyberpunk #menu-profile {
+    --prf-bg1: rgba(14,0,28,.98); --prf-bg2: rgba(5,0,12,.99);
+    --prf-border: rgba(255,0,155,.4); --prf-border-dim: rgba(255,0,155,.2);
+    --prf-text-bright: #ff88d0; --prf-text-mid: #e050a8;
+    --prf-text-dim: #a03878; --prf-text-label: #802858;
+    --prf-btn-bg: rgba(10,0,20,.85);
+    --prf-cover-a: #28024a; --prf-cover-b: #40086a;
+    --prf-cover-c: #180224; --prf-cover-d: #0a000e;
 }

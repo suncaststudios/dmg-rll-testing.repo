@@ -158,16 +158,21 @@ async function joinRoomByCode() {
         // nobody else changed the row in between; if 0 rows come back we
         // know we lost the race and retry against the fresh row.
         //
-        // players is passed as a native array (not JSON.stringify'd) both
-        // here and in the .eq() guard below — supabase-js serializes
-        // objects/arrays correctly for jsonb columns on its own. Manually
-        // stringifying first double-encodes it (the request body itself
-        // gets JSON-serialized on top), which silently turns the stored
-        // value into a jsonb *string* instead of a jsonb array. That
-        // mismatch meant `.eq('players', playersRaw)` could never match
-        // the freshly-read row, so every join fell through every retry
-        // and always ended in "Room is busy" — even against a completely
-        // empty, uncontested room.
+        // players is passed as a native array in the .update() body —
+        // supabase-js JSON-serializes the whole request body on its own,
+        // so the jsonb column is written correctly there.
+        //
+        // The .eq('players', ...) *filter*, however, is a URL query
+        // parameter, not a body field. supabase-js has no special jsonb
+        // handling for filter values — it just coerces whatever you pass
+        // to a string for the query string. Handing it a native array
+        // triggers Array/Object.prototype.toString(), producing the
+        // literal text "[object Object]" in the URL (e.g.
+        // players=eq.%5Bobject+Object%5D), which Postgres then rejects
+        // trying to cast back to jsonb ("invalid input syntax for type
+        // json"). The filter value must be JSON.stringify'd explicitly
+        // so the query string contains real JSON that Postgres can cast
+        // and structurally compare against the stored jsonb value.
         let room = null, newPlayers = null, myPlayer = null;
         const MAX_ATTEMPTS = 5;
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -190,7 +195,7 @@ async function joinRoomByCode() {
             const { data: updated, error: updateErr } = await sb.from('lobby_rooms')
                 .update({ players: newPlayers })
                 .eq('code', code)
-                .eq('players', players)   // CAS guard
+                .eq('players', JSON.stringify(players))   // CAS guard
                 .select();
             if (updateErr) { _lobbyStatus(statusEl, updateErr.message, 'err'); return; }
 
@@ -507,13 +512,17 @@ async function _lobbyWritePlayersCAS(code, mutateFn, maxAttempts = 5, extraField
         if (error || !room) return null;
         const freshPlayers = typeof room.players === 'string' ? JSON.parse(room.players) : (room.players || []);
         const newPlayers = mutateFn(freshPlayers);
-        // Native array, not JSON.stringify(newPlayers) — see the comment
-        // in joinRoomByCode above for why pre-stringifying a jsonb column
-        // breaks the .eq() CAS guard below.
+        // payload keeps players as a native array — the update body is
+        // JSON-serialized as a whole by supabase-js, so the jsonb column
+        // is written correctly. The .eq() filter below is a URL query
+        // param, though, and needs an explicit JSON.stringify — see the
+        // comment in joinRoomByCode above for why (native array/object
+        // there stringifies via toString() into literal "[object Object]"
+        // text, which Postgres then can't cast back to jsonb).
         const payload = { players: newPlayers, ...(extraFields || {}) };
         const { data: updated, error: updateErr } = await sb.from('lobby_rooms')
             .update(payload)
-            .eq('code', code).eq('players', freshPlayers).select();
+            .eq('code', code).eq('players', JSON.stringify(freshPlayers)).select();
         if (updateErr) return null;
         if (updated && updated.length > 0) return newPlayers;
         await new Promise(r => setTimeout(r, 120 + Math.random() * 150));

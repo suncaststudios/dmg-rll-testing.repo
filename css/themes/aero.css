@@ -269,6 +269,7 @@ body.theme-aero #changelog-panel {
     border-color: rgba(95,185,240,.4) !important;
     box-shadow: 0 4px 20px rgba(0,110,205,.12) !important;
 }
+body.theme-aero .cl-titlebar { background: linear-gradient(180deg, rgba(200,232,252,.95), rgba(180,222,248,.95)) !important; border-bottom: 1px solid rgba(95,185,240,.4) !important; }
 body.theme-aero .cl-titlebar-text { color: #0098d8 !important; font-family: 'Nunito', sans-serif !important; font-weight: 700 !important; }
 body.theme-aero .cl-entry { border-color: rgba(95,185,232,.25) !important; }
 body.theme-aero .cl-version { color: #0098d8 !important; }
@@ -317,4 +318,16 @@ body.theme-aero {
     --die-text: #0a4a6b;
     --die-text-glow: rgba(255,255,255,0.9);
     --die-label-color: rgba(20,90,120,0.85);
+}
+
+/* ── Profile screen theming (variable overrides only — .prf-avatar and
+   .prf-cover stay neutral so a user's own uploaded photo isn't recolored) ── */
+body.theme-aero #menu-profile {
+    --prf-bg1: rgba(230,248,255,.96); --prf-bg2: rgba(212,242,252,.98);
+    --prf-border: rgba(95,185,240,.4); --prf-border-dim: rgba(95,185,240,.22);
+    --prf-text-bright: #0068a8; --prf-text-mid: #0098d8;
+    --prf-text-dim: #3a90c0; --prf-text-label: #5aa0c8;
+    --prf-btn-bg: rgba(255,255,255,.85);
+    --prf-cover-a: #b8e0f8; --prf-cover-b: #d0eefe;
+    --prf-cover-c: #a0d0f0; --prf-cover-d: #88c0e8;
 }

@@ -45,7 +45,7 @@ const VAULT_CODES = {
     'COD3BREAKER': {
         response: 'what is this some kind of reference?',
         reward:   () => {
-            _vaultGrantCosmetic('aura_cod3breaker');
+            _vaultGrantCosmetic('title_cod3breaker');
             if (typeof awardXP === 'function') awardXP(20, 'Vault code');
         },
     },

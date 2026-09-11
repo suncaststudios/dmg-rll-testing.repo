@@ -17,6 +17,23 @@
             --ui-text-mid: #a07840;
             --ui-text-bright: #c8a460;
             --ui-label: #6b4f2a;
+            /* Profile screen chrome — kept as its own variable set (rather
+               than reusing --ui-*) so each theme can restyle the panel
+               background/border/text without touching .prf-avatar or
+               .prf-cover, which can hold a user's own uploaded photo. */
+            --prf-bg1: rgba(22,11,2,0.99);
+            --prf-bg2: rgba(8,4,0,0.99);
+            --prf-border: rgba(100,65,20,0.45);
+            --prf-border-dim: rgba(100,65,20,0.2);
+            --prf-text-bright: #e8c87a;
+            --prf-text-mid: #c8a460;
+            --prf-text-dim: #8a6535;
+            --prf-text-label: #6b4f2a;
+            --prf-btn-bg: rgba(8,4,0,0.8);
+            --prf-cover-a: #2a0e00;
+            --prf-cover-b: #5a2200;
+            --prf-cover-c: #2a1000;
+            --prf-cover-d: #100400;
             --ui-scale: 1.15;
             --anim-speed: 1;
             --card-darkness: 0;
@@ -1925,6 +1942,15 @@
                 inset 0 1px 0 rgba(255,200,80,0.06);
             overflow: visible;
         }
+        /* Dimmed while a page-level overlay (e.g. the ad modal) is open —
+           #changelog-panel is `position: fixed` outside #game-container,
+           so overlays inside the container can't visually darken it just
+           by stacking above it; this is applied/removed in JS instead. */
+        #changelog-panel.cl-dimmed {
+            opacity: 0.15;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
 
         /* Legacy .sword-divider still used in some sub-menus */
         .sword-divider {
@@ -2187,6 +2213,7 @@
             border-radius: 4px;
             transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
             position: relative;
+            z-index: 1;
         }
         .hp-fill::after {
             content: ''; position: absolute;
@@ -2198,6 +2225,26 @@
             animation: hp-pulse 1s ease-in-out infinite;
         }
         @keyframes hp-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.65; } }
+
+        /* ── HP "damage trail" ──
+           Classic health-bar juice: on damage, this bright strip snaps
+           to the PREVIOUS width instantly (behind the fill, which drops
+           immediately) then eases down to the new width after a short
+           hold, so a hit reads as "a chunk got bitten off" instead of
+           just a bar quietly shrinking. On heals it just tracks the new
+           width immediately (no lag needed — regen isn't as toothless a
+           motion. See updateHUD() in js/ui.js for the two-step width set
+           that makes the delayed transition below actually visible
+           instead of being skipped by the browser batching both writes
+           into one frame. */
+        .hp-trail {
+            position: absolute; inset: 0;
+            background: rgba(255,235,140,0.6);
+            border-radius: 4px;
+            transition: width 0.6s ease 0.4s;
+            z-index: 0;
+        }
+        .hp-trail.dmg { background: rgba(255,90,70,0.65); }
 
         /* Legacy .hp-label used in HTML — map to new style */
         .hp-label {
@@ -2241,9 +2288,24 @@
             padding: 6px 20px;
             background: rgba(5,2,0,0.6);
             border: 1px solid rgba(100,65,15,0.3);
+            pointer-events: none;
             border-radius: 3px;
             backdrop-filter: blur(4px);
             white-space: nowrap;
+            transition: color 0.3s, border-color 0.3s, text-shadow 0.3s;
+        }
+        /* Brighter, gently pulsing gold when it's actually your turn —
+           previously identical to "Opponent's Turn" apart from the text
+           itself, which made it easy to glance past whose turn it was. */
+        #turn-indicator.your-turn {
+            color: rgba(255,220,120,0.95);
+            border-color: rgba(255,200,80,0.5);
+            text-shadow: 0 0 24px rgba(255,190,60,0.75), 0 2px 0 rgba(0,0,0,0.9);
+            animation: turn-indicator-pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes turn-indicator-pulse {
+            0%, 100% { box-shadow: 0 0 0 rgba(255,200,80,0); }
+            50%      { box-shadow: 0 0 16px rgba(255,200,80,0.35); }
         }
 
         /* ── Die ── */
@@ -2338,6 +2400,24 @@
             background: radial-gradient(ellipse at 50% 40%,
                 rgba(30,12,2,0.97) 0%,
                 rgba(5,2,0,0.99) 100%) !important;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Subtle mood wash layered on top of the base gradient — warm gold
+           bloom on a win, a cold red vignette closing in on a loss, so the
+           end screen doesn't look identical apart from the title text. */
+        #screen-end.victory-bg::before {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(ellipse at 50% 30%, rgba(255,200,60,0.16) 0%, transparent 65%);
+            animation: victory-bg-pulse 2.4s ease-in-out infinite;
+        }
+        #screen-end.defeat-bg::before {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(120,0,0,0.35) 100%);
+        }
+        @keyframes victory-bg-pulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+        .victory-confetti {
+            position: absolute; border-radius: 2px; pointer-events: none; z-index: 2;
         }
         #end-title {
             font-family: 'Cinzel Decorative', serif;
@@ -3110,20 +3190,17 @@
             transform-style: preserve-3d;
             transition: transform 0.4s cubic-bezier(.2,.8,.2,1);
             user-select: none; -webkit-user-select: none;
+            position: relative;
         }
         #customize-preview-card-wrap.dragging { cursor: grabbing; transition: none !important; }
         #customize-preview-card-wrap.dragging .card { transition: none !important; }
         #customize-preview-card {
             width: 190px; height: 282px; padding: 16px 14px 14px;
             pointer-events: none; position: relative;
+            backface-visibility: hidden;
+            transform-style: preserve-3d;
         }
         #customize-preview-card .c-icon { font-size: 60px; }
-        .customize-aura {
-            position: absolute; inset: -40px; border-radius: 50%;
-            pointer-events: none; z-index: -1;
-            opacity: 0; transition: opacity 0.3s;
-        }
-        .customize-aura.on { opacity: 1; }
 
         /* ── Corner ad box (bottom-right, self-promo carousel) ──
            Sized up per feedback (was 190×62). Colors pull from the same
@@ -3257,73 +3334,51 @@
         .ad-modal-arrow-left  { left: -54px; }
         .ad-modal-arrow-right { right: -54px; }
 
-        /* ── Cod3breaker aura: scanlines + falling matrix code on the card itself ── */
-        .cod3breaker-fx {
-            position: absolute; inset: 0; border-radius: inherit;
-            overflow: hidden; pointer-events: none; z-index: 5;
-            opacity: 0; transition: opacity 0.3s;
+        /* ── Card back preview (reverse face of the rotating Customize
+           preview card) and its live counterpart, .ai-back, styled
+           directly via JS in customize.js (_applyCardBackToEl). ── */
+        .customize-preview-back {
+            position: absolute; inset: 0;
+            border-radius: inherit;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px;
+            opacity: 0; transform: rotateY(180deg);
+            backface-visibility: hidden;
+            border: 2px solid transparent;
+            transition: opacity 0.2s;
+            pointer-events: none;
         }
-        .cod3breaker-fx.on { opacity: 1; }
-        .cod3breaker-fx::before {
-            content: ''; position: absolute; inset: 0;
-            background: repeating-linear-gradient(
-                to bottom,
-                rgba(80,255,120,0.09) 0px,
-                rgba(80,255,120,0.09) 1px,
-                transparent 2px,
-                transparent 3px
-            );
-            animation: cod3breaker-scan 6s linear infinite;
-            mix-blend-mode: screen;
-        }
-        .cod3breaker-col {
-            position: absolute; top: -50%; width: 1em;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 11px; line-height: 1.4;
-            color: rgba(90,255,120,0.55);
-            text-shadow: 0 0 6px rgba(90,255,120,0.6);
-            white-space: pre;
-            animation-name: cod3breaker-fall;
-            animation-timing-function: linear;
-            animation-iteration-count: infinite;
-        }
-        @keyframes cod3breaker-scan {
-            0%   { background-position: 0 0; }
-            100% { background-position: 0 40px; }
-        }
-        @keyframes cod3breaker-fall {
-            0%   { transform: translateY(0%); }
-            100% { transform: translateY(100%); }
-        }
-        .customize-hat {
-            position: absolute; top: -46px; left: 50%; transform: translateX(-50%);
-            font-size: 60px; pointer-events: none;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-            opacity: 0; transition: opacity 0.2s, transform 0.2s;
-        }
-        .customize-hat.on { opacity: 1; }
+        .customize-preview-back.on { opacity: 1; }
 
-        /* ── Generic cosmetics for cards OUTSIDE the Customize screen
-           (main-menu showcase card, in-combat hand cards). Separate from
-           .customize-hat/.customize-aura above (which are singleton IDs
-           for the one preview card) since these get created/destroyed
-           per-card on demand by _applyCardCosmetics() in customize.js. ── */
-        .cosmetic-hat {
-            position: absolute; left: 50%; transform: translateX(-50%);
-            pointer-events: none; z-index: 6;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        /* ── Name-plate cosmetics (titles + frames) — used anywhere a
+           username renders: leaderboard, lobby, club roster, profile. ── */
+        .np-title {
+            font-family: 'IM Fell English', serif; font-style: italic;
+            font-size: 0.85em; color: #c8a460; opacity: 0.85;
         }
-        .cosmetic-hat.hat-lg { font-size: 56px; top: -42px; }
-        .cosmetic-hat.hat-md { font-size: 46px; top: -34px; }
-        .cosmetic-hat.hat-sm { font-size: 34px; top: -26px; }
-        /* Aura, applied as a drop-shadow filter rather than an extra
-           layered element — filter wraps the whole rendered card
-           (including its own opaque background/box-shadow) in a colored
-           glow, so it isn't clipped the way a lower z-index child would
-           be behind the card's opaque background. */
-        .card.has-cosmetic-aura { filter: var(--cosmetic-aura-glow, none); }
+        .np-frame {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 8px; border-radius: 4px;
+        }
+        .np-frame-frame_ironbound { border: 2px solid #7a7a80; background: rgba(50,50,55,0.35); }
+        .np-frame-frame_gilded    { border: 2px solid #e8c870; background: rgba(90,70,20,0.25); }
+        .np-frame-frame_thorned   { border: 2px solid #8a3050; background: rgba(60,15,25,0.3); }
+        .np-frame-frame_static    { border: 2px dashed #90a0b0; background: rgba(40,50,60,0.3); }
+        .np-frame-frame_engraved  { border: 2px solid #a07850; background: rgba(60,40,20,0.3); }
+
+        .customize-preview-nameplate {
+            margin-top: 10px; text-align: center;
+            font-family: 'Cinzel', serif; font-size: 13px; color: #e8d5b0;
+        }
+
+        .ci-gifted-tag {
+            margin-top: 4px; font-size: 8px; letter-spacing: 1px;
+            color: #e8c870; text-transform: uppercase;
+        }
+
         .customize-preview-caption {
             margin-top: 18px;
+
             font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 2px;
             color: #7a5a30; text-transform: uppercase;
         }
@@ -3641,24 +3696,46 @@
             50%      { box-shadow: 0 0 0 1px #6b3a1f, 0 0 80px rgba(0,0,0,0.95), 0 0 180px rgba(255,220,0,0.9), inset 0 0 180px rgba(255,200,0,0.6); }
         }
 
+        /* ── Attack projectile flight ──
+           Previously a flat two-keyframe linear fly (start → end, fading
+           and scaling up monotonically the whole way) with no sense of
+           weight or impact. Rebuilt as a proper lob arc to match the
+           bowed comet trail in startTrail()/animTrail() (js/game.js):
+             - brief anticipation pull-back before launch (wind-up)
+             - arcs UP through a peak higher than either endpoint, then
+               down into the target — real parabolic motion instead of
+               a straight cut
+             - spins during flight for kinetic energy
+             - squash-stretches (elongated along the travel direction)
+               rather than uniform scaling
+             - snaps into an impact "pop" at the very end instead of
+               just fading to nothing */
         @keyframes fly-p2a {
-            0%   { left: 50%; top: 60%; opacity: 1; transform: translate(-50%,-50%) scale(0.9); }
-            100% { left: 75%; top: 18%; opacity: 0; transform: translate(-50%,-50%) scale(1.5); }
+            0%   { left: 50%;   top: 60%;  transform: translate(-50%,-50%) rotate(-8deg)  scale(0.85,0.85); opacity: 0.9; }
+            12%  { left: 46%;   top: 63%;  transform: translate(-50%,-50%) rotate(-20deg) scale(0.7,1.05);  opacity: 1;   }
+            55%  { left: 66%;   top: 12%;  transform: translate(-50%,-50%) rotate(160deg) scale(1.3,0.85);  opacity: 1;   }
+            85%  { left: 74%;   top: 20%;  transform: translate(-50%,-50%) rotate(300deg) scale(1.05,1.15); opacity: 1;   }
+            100% { left: 75%;   top: 18%;  transform: translate(-50%,-50%) rotate(360deg) scale(0.2,0.2);   opacity: 0;   }
         }
         @keyframes fly-a2p {
-            0%   { left: 50%; top: 22%; opacity: 1; transform: translate(-50%,-50%) scale(0.9); }
-            100% { left: 25%; top: 65%; opacity: 0; transform: translate(-50%,-50%) scale(1.5); }
+            0%   { left: 50%;   top: 22%;  transform: translate(-50%,-50%) rotate(8deg)   scale(0.85,0.85); opacity: 0.9; }
+            12%  { left: 54%;   top: 19%;  transform: translate(-50%,-50%) rotate(20deg)  scale(0.7,1.05);  opacity: 1;   }
+            55%  { left: 34%;   top: 70%;  transform: translate(-50%,-50%) rotate(-160deg) scale(1.3,0.85); opacity: 1;   }
+            85%  { left: 26%;   top: 63%;  transform: translate(-50%,-50%) rotate(-300deg) scale(1.05,1.15);opacity: 1;   }
+            100% { left: 25%;   top: 65%;  transform: translate(-50%,-50%) rotate(-360deg) scale(0.2,0.2);  opacity: 0;   }
         }
         @keyframes fail-p {
-            0%   { left: 50%; top: 60%; transform: translate(-50%,-50%) rotate(0deg) scale(1); opacity: 1; }
-            100% { left: 30%; top: 70%; transform: translate(-50%,-50%) rotate(180deg) scale(0.6); opacity: 0; }
+            0%   { left: 50%; top: 60%; transform: translate(-50%,-50%) rotate(0deg)   scale(1);    opacity: 1; }
+            40%  { left: 38%; top: 62%; transform: translate(-50%,-50%) rotate(70deg)  scale(0.85); opacity: 0.9; }
+            100% { left: 30%; top: 70%; transform: translate(-50%,-50%) rotate(220deg) scale(0.5);  opacity: 0; }
         }
         @keyframes fail-a {
-            0%   { left: 50%; top: 22%; transform: translate(-50%,-50%) rotate(0deg) scale(1); opacity: 1; }
-            100% { left: 70%; top: 12%; transform: translate(-50%,-50%) rotate(180deg) scale(0.6); opacity: 0; }
+            0%   { left: 50%; top: 22%; transform: translate(-50%,-50%) rotate(0deg)   scale(1);    opacity: 1; }
+            40%  { left: 62%; top: 16%; transform: translate(-50%,-50%) rotate(-70deg) scale(0.85); opacity: 0.9; }
+            100% { left: 70%; top: 12%; transform: translate(-50%,-50%) rotate(-220deg) scale(0.5); opacity: 0; }
         }
-        .f-p2a    { font-size: 56px; position: absolute; pointer-events:none; z-index:4000; animation: fly-p2a 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
-        .f-a2p    { font-size: 56px; position: absolute; pointer-events:none; z-index:4000; animation: fly-a2p 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .f-p2a    { font-size: 56px; position: absolute; pointer-events:none; z-index:4000; animation: fly-p2a 0.5s cubic-bezier(0.3,0.05,0.25,1) forwards; filter: drop-shadow(0 0 12px currentColor); }
+        .f-a2p    { font-size: 56px; position: absolute; pointer-events:none; z-index:4000; animation: fly-a2p 0.5s cubic-bezier(0.3,0.05,0.25,1) forwards; filter: drop-shadow(0 0 12px currentColor); }
         .f-fail-p { font-size: 56px; position: absolute; pointer-events:none; z-index:4000; animation: fail-p 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
         .f-fail-a { font-size: 56px; position: absolute; pointer-events:none; z-index:4000; animation: fail-a 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
 
@@ -3688,13 +3765,6 @@
             background: linear-gradient(180deg, #fff7d0, #ffd700, #b8860b);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             margin-bottom: 20px;
-        }
-        #turn-indicator {
-            position: absolute; bottom: 230px; left: 50%;
-            transform: translateX(-50%);
-            font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 4px;
-            color: rgba(180,130,40,0.6); text-transform: uppercase;
-            z-index: 20; pointer-events: none;
         }
 
         .zone { position: absolute; left: 0; right: 0; height: 45%; z-index: 2; pointer-events: none; display: flex; align-items: center; justify-content: center; }
@@ -4782,6 +4852,12 @@
             border-radius: 8px;
             padding: 14px 16px;
             transition: border-color .18s;
+            /* Sized so multiple quest cards can sit side-by-side within a
+               type's row (flex-wrap on the parent list) instead of each
+               card stretching to fill the full width and forcing every
+               quest onto its own line. */
+            flex: 1 1 320px;
+            min-width: 260px;
         }
         .quest-card:hover { border-color: rgba(180,130,40,.45); }
         .quest-card.quest-done { border-color: rgba(80,140,30,.4); }
@@ -4998,3 +5074,4 @@
     color: #ffd76a; text-align: center; margin-top: 10px;
     text-shadow: 0 0 12px rgba(255,200,80,0.5);
 }
+

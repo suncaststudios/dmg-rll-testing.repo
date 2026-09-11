@@ -241,6 +241,7 @@ body.theme-castingcasings #changelog-panel {
     background: linear-gradient(160deg, rgba(20,13,16,.98), rgba(8,5,7,.99)) !important;
     border-color: rgba(200,150,60,.35) !important;
 }
+body.theme-castingcasings .cl-titlebar { background: linear-gradient(180deg, rgba(30,20,10,.97), rgba(14,9,5,.98)) !important; border-bottom: 1px solid rgba(200,150,60,.35) !important; }
 body.theme-castingcasings .cl-titlebar-text { color: #e8b860 !important; font-family: 'MedievalSharp', serif !important; }
 body.theme-castingcasings .cl-entry { border-color: rgba(200,150,60,.18) !important; }
 body.theme-castingcasings .cl-version { color: #8a6420 !important; }
@@ -289,4 +290,16 @@ body.theme-castingcasings {
     --die-text: #ffe6c0;
     --die-text-glow: rgba(255,140,40,0.6);
     --die-label-color: rgba(210,160,60,0.85);
+}
+
+/* ── Profile screen theming (variable overrides only — .prf-avatar and
+   .prf-cover stay neutral so a user's own uploaded photo isn't recolored) ── */
+body.theme-castingcasings #menu-profile {
+    --prf-bg1: rgba(20,13,16,.98); --prf-bg2: rgba(8,5,7,.99);
+    --prf-border: rgba(200,150,60,.35); --prf-border-dim: rgba(200,150,60,.18);
+    --prf-text-bright: #e8b860; --prf-text-mid: #c89a48;
+    --prf-text-dim: #8a6a30; --prf-text-label: #6a5020;
+    --prf-btn-bg: rgba(10,6,8,.85);
+    --prf-cover-a: #241a14; --prf-cover-b: #3a2a1a;
+    --prf-cover-c: #180f0c; --prf-cover-d: #0a0605;
 }

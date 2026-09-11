@@ -175,22 +175,75 @@ const trailCanvas = document.getElementById('trail-canvas');
 const tCtx = trailCanvas.getContext('2d');
 let activeTrail = null;
 
+/* Comet-style attack trail — traces a curved (not straight) path from
+   caster to target with a bright glowing head and a multi-layer,
+   fading tail, redrawn every frame while active. Previously this was
+   a single straight stroke with a flat gradient; the new version:
+     - bows the path into a lob arc (perpendicular offset at the
+       midpoint) instead of a straight line, matching the arcing CSS
+       keyframes the flying emoji itself now uses (see fly-p2a/fly-a2p
+       in css/main.css) so the glow and the emoji read as one object
+       instead of two slightly-mismatched effects.
+     - draws 3 stacked strokes (wide+dim → narrow+bright) for a comet
+       tail instead of one flat line.
+     - adds a bright core "spark" circle at the current head position
+       so the leading edge actually looks like the source of the glow
+       rather than the line just fading at both ends evenly. */
 function startTrail(sx, sy, ex, ey, color) {
-    activeTrail = { sx, sy, ex, ey, color, t: 0 };
+    // Bow the path perpendicular to the straight line, toward whichever
+    // side reads as "up and over" for this direction — arcing away from
+    // the midline rather than cutting straight through it.
+    const dx = ex - sx, dy = ey - sy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = -dy / dist, ny = dx / dist; // unit normal to the sx/sy→ex/ey line
+    const arcAmount = Math.min(90, dist * 0.28) * (sy > ey ? 1 : -1); // arcs "outward/up" for an upward throw, mirrored for downward
+    const cx = (sx + ex) / 2 + nx * arcAmount;
+    const cy = (sy + ey) / 2 + ny * arcAmount;
+    activeTrail = { sx, sy, ex, ey, cx, cy, color, t: 0 };
+}
+function _trailPoint(tr, t) {
+    // Quadratic bezier through the bowed control point.
+    const mt = 1 - t;
+    return {
+        x: mt * mt * tr.sx + 2 * mt * t * tr.cx + t * t * tr.ex,
+        y: mt * mt * tr.sy + 2 * mt * t * tr.cy + t * t * tr.ey,
+    };
 }
 function animTrail() {
     tCtx.clearRect(0, 0, 980, 670);
     if (activeTrail) {
-        const tr = activeTrail; tr.t = Math.min(tr.t + 0.07, 1);
-        const cx = tr.sx + (tr.ex - tr.sx) * tr.t;
-        const cy = tr.sy + (tr.ey - tr.sy) * tr.t;
-        const g = tCtx.createLinearGradient(tr.sx, tr.sy, cx, cy);
-        g.addColorStop(0, 'transparent');
-        g.addColorStop(0.3, tr.color.replace('1)', '0.15)'));
-        g.addColorStop(1, tr.color);
-        tCtx.beginPath(); tCtx.moveTo(tr.sx, tr.sy); tCtx.lineTo(cx, cy);
-        tCtx.strokeStyle = g; tCtx.lineWidth = 4;
-        tCtx.shadowColor = tr.color; tCtx.shadowBlur = 14; tCtx.stroke(); tCtx.shadowBlur = 0;
+        const tr = activeTrail; tr.t = Math.min(tr.t + 0.035, 1);
+        const head = _trailPoint(tr, tr.t);
+
+        // Comet tail: sample a handful of points behind the head and
+        // stroke through them with shrinking width / rising brightness
+        // toward the front, instead of one flat-gradient line.
+        const SEGMENTS = 5;
+        tCtx.lineCap = 'round';
+        for (let s = SEGMENTS; s >= 1; s--) {
+            const segFrac = s / SEGMENTS;
+            const tStart = Math.max(0, tr.t - segFrac * 0.35);
+            const tEnd   = Math.max(0, tr.t - (segFrac - 1 / SEGMENTS) * 0.35);
+            const p1 = _trailPoint(tr, tStart);
+            const p2 = _trailPoint(tr, tEnd);
+            const alpha = (1 - segFrac) * 0.85 + 0.1;
+            const width = 2 + (1 - segFrac) * 5;
+            tCtx.beginPath(); tCtx.moveTo(p1.x, p1.y); tCtx.lineTo(p2.x, p2.y);
+            tCtx.strokeStyle = tr.color.replace('1)', alpha.toFixed(2) + ')');
+            tCtx.lineWidth = width;
+            tCtx.shadowColor = tr.color; tCtx.shadowBlur = 10 + (1 - segFrac) * 10;
+            tCtx.stroke();
+        }
+        tCtx.shadowBlur = 0;
+
+        // Bright core spark riding at the very head of the trail.
+        const sparkGrad = tCtx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 10);
+        sparkGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+        sparkGrad.addColorStop(0.5, tr.color);
+        sparkGrad.addColorStop(1, 'transparent');
+        tCtx.fillStyle = sparkGrad;
+        tCtx.beginPath(); tCtx.arc(head.x, head.y, 10, 0, Math.PI * 2); tCtx.fill();
+
         if (tr.t >= 1) setTimeout(() => { activeTrail = null; }, 150);
     }
     requestAnimationFrame(animTrail);

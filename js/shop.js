@@ -638,6 +638,9 @@ function _shopSellItem(id) {
         desc: `Sell this item back for ${refundAmt} 🪙 (${gifted ? '50%' : '70%'} of its ${item.price} 🪙 stock price${gifted ? ' — reduced because it was a gifted item' : ''}). Buying it again later will cost more than stock price.`,
         price: refundAmt,
         note: 'This is a sale, not a refund — the price shown is what you\'ll receive, not pay.',
+        confirmLabel: 'Sell It',
+        priceLabel: "You'll Receive",
+        isIncome: true,
         onConfirm: () => {
             _shopOwned.delete(id);
             _shopMetaFor(id).disposals.push({ type: 'sale', at: Date.now() });
@@ -678,6 +681,8 @@ async function _shopGiftItem(id) {
         desc: `You will LOSE this item and pay a ${SHOP_GIFT_FEE} 🪙 gifting fee. You'll receive a one-time gift code to send to another player. You can buy this item back later for 🪙 ${nextBuyback.toLocaleString()}.`,
         price: SHOP_GIFT_FEE,
         note: '⚠ This cannot be undone except by buying the item back at the increased price above.',
+        confirmLabel: 'Confirm Gift',
+        priceLabel: 'Gifting Fee',
         onConfirm: async () => {
             document.getElementById('shop-confirm-modal')?.remove();
             try {
@@ -854,8 +859,15 @@ async function shopFetchPublicCosmetics(uid) {
 window.shopFetchPublicCosmetics = shopFetchPublicCosmetics;
 
 /* ─────────────────── CONFIRM MODAL ─────────────────── */
-function _shopShowConfirm({ icon, name, type, typeColor, desc, price, note, onConfirm }) {
-    const canAfford = _shopGold >= price;
+function _shopShowConfirm({ icon, name, type, typeColor, desc, price, note, onConfirm, confirmLabel, priceLabel, isIncome }) {
+    // isIncome: true when `price` is money the player RECEIVES (selling,
+    // refunding) rather than money they must SPEND (purchasing, gifting's
+    // flat fee). The afford-gate below only makes sense for a cost —
+    // applying it to a sell's refund amount would incorrectly hide the
+    // confirm button any time a low-balance player tries to sell
+    // something worth more gold than they currently have, which is
+    // exactly the player who most needs to be able to sell for gold.
+    const canAfford = isIncome || _shopGold >= price;
     let modal = document.getElementById('shop-confirm-modal');
     if (modal) modal.remove();
     modal = document.createElement('div');
@@ -871,12 +883,12 @@ function _shopShowConfirm({ icon, name, type, typeColor, desc, price, note, onCo
             <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:${typeColor};margin-bottom:10px;">${type}</div>
             <div style="font-family:'IM Fell English',serif;font-size:11px;color:rgba(200,160,80,.6);font-style:italic;margin-bottom:14px;line-height:1.5;">${desc}</div>
             ${note ? `<div style="font-size:9px;color:#6b8040;letter-spacing:1px;margin-bottom:10px;">${note}</div>` : ''}
-            <div style="font-size:9px;color:#5a3a10;letter-spacing:2px;margin-bottom:4px;text-transform:uppercase;">Price</div>
+            <div style="font-size:9px;color:#5a3a10;letter-spacing:2px;margin-bottom:4px;text-transform:uppercase;">${priceLabel || 'Price'}</div>
             <div style="font-size:24px;font-weight:bold;color:#e8c87a;margin-bottom:4px;">🪙 ${price.toLocaleString()}</div>
             <div style="font-size:9px;color:${canAfford ? '#4a8040' : '#8b0000'};letter-spacing:1px;margin-bottom:20px;">Your balance: ${_shopGold.toLocaleString()} 🪙</div>
             ${canAfford
                 ? `<div style="display:flex;gap:10px;justify-content:center;">
-                    <button class="shop-btn shop-btn-gold" data-role="confirm-purchase" style="min-width:120px;">Purchase</button>
+                    <button class="shop-btn shop-btn-gold" data-role="confirm-purchase" style="min-width:120px;">${confirmLabel || 'Purchase'}</button>
                     <button class="shop-btn" style="border-color:rgba(100,65,20,.35);color:#5a3a10;min-width:80px;" onclick="_shopCloseModal()">Cancel</button>
                    </div>`
                 : `<div style="font-family:'IM Fell English',serif;font-size:11px;color:rgba(180,60,60,.7);font-style:italic;margin-bottom:14px;">Not enough Gold to purchase this.</div>

@@ -2603,7 +2603,13 @@
         }
         .ach-tile.secret:not(.unlocked) .ach-tile-name,
         .ach-tile.secret:not(.unlocked) .ach-tile-desc {
-            filter: blur(3px); user-select: none;
+            /* Was blur(3px) on top of the locked-state color (#4a3010,
+               already dark against this near-black background) — the
+               combination made "???" functionally invisible rather than
+               readably "mysterious". Lighter blur + a brighter color
+               override keep the obscured feel without losing legibility. */
+            filter: blur(1.5px); user-select: none;
+            color: #8a6535 !important;
         }
         .ach-tile-icon {
             font-size: 28px; flex-shrink: 0;
@@ -3013,13 +3019,11 @@
             border-color: #ffcc55;
             box-shadow: 0 0 0 2px rgba(255,204,85,0.35), 0 0 12px rgba(255,204,85,0.3);
         }
-        .theme-swatch.pending::after {
-            content: '✓ selected — click Apply';
-            position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
-            font-family: 'Cinzel', serif; font-size: 7px; letter-spacing: 1px;
-            color: #ffcc55; white-space: nowrap; text-transform: uppercase;
-            z-index: 5; pointer-events: none;
-        }
+        /* Previously had a ::after pseudo-element reading "✓ selected —
+           click Apply" — it was positioned bottom:-18px (below the
+           swatch) despite reading as if it should sit above, which just
+           looked broken. The gold border/glow above already communicates
+           "pending" clearly on its own, so removed rather than repositioned. */
         .theme-swatch.active:not(.pending) {
             border-color: rgba(120,200,140,0.7);
             box-shadow: 0 0 0 2px rgba(120,200,140,0.25);

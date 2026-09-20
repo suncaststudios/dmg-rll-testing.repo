@@ -286,3 +286,10 @@ body.theme-space #menu-profile {
     --prf-cover-a: #0a1030; --prf-cover-b: #141c50;
     --prf-cover-c: #050818; --prf-cover-d: #02040c;
 }
+
+/* Bottom-of-panel fade — hints "scroll for more" by fading the last
+   visible entry into the panel's own background. This didn't exist for
+   this theme at all, so it fell back to main.css's hardcoded dark-brown
+   fade (rgba(8,4,0,.9)), which sat as a visibly wrong dark box on top
+   of this theme's own panel color — most jarring on light themes. */
+body.theme-space #changelog-panel::after { background: linear-gradient(transparent, rgba(3,5,20,.99)) !important; }

@@ -303,3 +303,10 @@ body.theme-castingcasings #menu-profile {
     --prf-cover-a: #241a14; --prf-cover-b: #3a2a1a;
     --prf-cover-c: #180f0c; --prf-cover-d: #0a0605;
 }
+
+/* Bottom-of-panel fade — hints "scroll for more" by fading the last
+   visible entry into the panel's own background. This didn't exist for
+   this theme at all, so it fell back to main.css's hardcoded dark-brown
+   fade (rgba(8,4,0,.9)), which sat as a visibly wrong dark box on top
+   of this theme's own panel color — most jarring on light themes. */
+body.theme-castingcasings #changelog-panel::after { background: linear-gradient(transparent, rgba(8,5,7,.99)) !important; }

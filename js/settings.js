@@ -972,7 +972,7 @@ async function resolve(card, isP) {
                 await Promise.all([chromaImpact(), shake(chain > 0 ? 16 : 10), flashScreen('rgba(255,80,20,0.4)', 75)]);
                 let d = total + 5;
                 if (isP) {
-                    if (state.aTariff > 0) { trackTariffBlock(d); d = Math.floor(d * 0.5); }
+                    if (state.pTariff > 0) { trackTariffBlock(d); d = Math.floor(d * 0.5); }
                     if (state.aShield) { d = Math.floor(d * 0.4); state.aShield = false; }
                     const preHP = state.aHP;
                     dmg(d, false);
@@ -981,7 +981,7 @@ async function resolve(card, isP) {
                     if (state.aHP <= 0 && preHP > 0) checkAchs({ won: true });
                 } else {
                     d = total + 3; 
-                    if (state.pTariff > 0) d = Math.floor(d * 0.5);
+                    if (state.aTariff > 0) d = Math.floor(d * 0.5);
                     if (state.pShield) { d = Math.floor(d * 0.4); state.pShield = false; }
                     dmg(d, true);
                     trackTurn();
@@ -1109,11 +1109,11 @@ async function resolve(card, isP) {
                     updateHUD(); break;
                 }
                 if (isP) {
-                    let v = bombDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = bombDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     const preHP = state.aHP; dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                     if (state.aHP <= 0 && preHP > 0) checkAchs({ bombKill: true });
                 } else {
-                    let v = state.pTariff > 0 ? Math.floor(bombDmg*0.5) : bombDmg;
+                    let v = state.aTariff > 0 ? Math.floor(bombDmg*0.5) : bombDmg;
                     dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0);
                 }
                 break;
@@ -1165,7 +1165,7 @@ async function resolve(card, isP) {
                     spawnImpactRing(impactX, impactY + s * 12, '#ffe57a');
                     spawnParticles(impactX, impactY, 14, ['#ffe57a','#fff176','#fff','#ffee58'], 70);
                     await Promise.all([shake(8), flashScreen('rgba(255,230,80,0.35)', 55)]);
-                    let sd = stormDmg; if (isP && state.aTariff > 0) sd = Math.floor(sd * 0.5); if (!isP && state.pTariff > 0) sd = Math.floor(sd * 0.5);
+                    let sd = stormDmg; if (isP && state.pTariff > 0) sd = Math.floor(sd * 0.5); if (!isP && state.aTariff > 0) sd = Math.floor(sd * 0.5);
                     if (isP && state.aShield) { sd = Math.floor(sd * 0.4); state.aShield = false; }
                     if (!isP && state.pShield) { sd = Math.floor(sd * 0.4); state.pShield = false; }
                     dmg(sd, !isP);
@@ -1216,13 +1216,13 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 16, ['#90caf9','#e3f2fd','#fff'], 70);
                 await Promise.all([shake(9), flashScreen('rgba(150,200,255,0.3)', 60)]);
                 if (isP) {
-                    let sd = snipeDmg; if (state.aTariff > 0) { trackTariffBlock(sd); sd = Math.floor(sd * 0.5); }
+                    let sd = snipeDmg; if (state.pTariff > 0) { trackTariffBlock(sd); sd = Math.floor(sd * 0.5); }
                     const hadPet = state.aPet > 0;
                     const preHP = state.aHP; state.aHP -= sd;
                     trackDamage(sd, true); trackTurn(); showNumber(sd, false, false, chain>0);
                     if (hadPet && state.aHP <= 0 && preHP > 0) checkAchs({ snipeThroughPet: true });
                 } else {
-                    let sd = snipeDmg; if (state.pTariff > 0) sd = Math.floor(sd * 0.5);
+                    let sd = snipeDmg; if (state.aTariff > 0) sd = Math.floor(sd * 0.5);
                     state.pHP -= sd; trackTurn(); showNumber(sd, false, true, chain>0);
                 }
                 break;
@@ -1311,8 +1311,8 @@ async function resolve(card, isP) {
                 spawnImpactRing(impactX, impactY, '#d7ccc8');
                 spawnParticles(impactX, impactY, 12, ['#d7ccc8','#efebe9','#fff'], 60);
                 await Promise.all([shake(6), flashScreen('rgba(200,180,140,0.25)', 50)]);
-                if (isP) { let v = state.aTariff > 0 ? Math.floor(boneDmg*0.5) : boneDmg; dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0); }
-                else     { let v = state.pTariff > 0 ? Math.floor(boneDmg*0.5) : boneDmg; dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0); }
+                if (isP) { let v = state.pTariff > 0 ? Math.floor(boneDmg*0.5) : boneDmg; dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0); }
+                else     { let v = state.aTariff > 0 ? Math.floor(boneDmg*0.5) : boneDmg; dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0); }
                 break;
             }
 
@@ -1329,11 +1329,11 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 30, ['#ce93d8','#9c27b0','#e1bee7','#fff','#7b1fa2'], 120);
                 await Promise.all([chromaImpact(), shake(16), flashScreen('rgba(120,0,180,0.5)', 90)]);
                 if (isP) {
-                    let v = soulDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = soulDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     const preHP = state.aHP; dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                     if (state.aHP <= 0 && preHP > 0) checkAchs({ soulKill: true });
                 } else {
-                    let v = state.pTariff > 0 ? Math.floor(soulDmg*0.5) : soulDmg;
+                    let v = state.aTariff > 0 ? Math.floor(soulDmg*0.5) : soulDmg;
                     dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0);
                 }
                 break;
@@ -1368,11 +1368,11 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 22, ['#f48fb1','#f06292','#fff','#fce4ec'], 95);
                 await Promise.all([chromaImpact(), shake(chain > 0 ? 14 : 9), flashScreen('rgba(240,100,160,0.4)', 70)]);
                 if (isP) {
-                    let v = ariaDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = ariaDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aShield) { v = Math.floor(v * 0.4); state.aShield = false; }
                     const preHP = state.aHP; dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                 } else {
-                    let v = ariaDmg; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = ariaDmg; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pShield) { v = Math.floor(v * 0.4); state.pShield = false; }
                     dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0);
                 }
@@ -1405,11 +1405,11 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 26, ['#ec407a','#f48fb1','#fff','#fce4ec','#ad1457'], 110);
                 await Promise.all([chromaImpact(), shake(chain > 0 ? 16 : 11), flashScreen('rgba(220,60,130,0.45)', 80)]);
                 if (isP) {
-                    let v = bansheeDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = bansheeDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aShield) { v = Math.floor(v * 0.4); state.aShield = false; }
                     dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                 } else {
-                    let v = bansheeDmg; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = bansheeDmg; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pShield) { v = Math.floor(v * 0.4); state.pShield = false; }
                     dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0);
                 }
@@ -1449,12 +1449,12 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 28, ['#e91e63','#f48fb1','#fce4ec','#fff','#c2185b'], 110);
                 await Promise.all([chromaImpact(), shake(chain > 0 ? 15 : 10), flashScreen('rgba(220,30,100,0.45)', 80)]);
                 if (isP) {
-                    let v = encoreDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = encoreDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aShield) { v = Math.floor(v * 0.4); state.aShield = false; }
                     dmg(v, false); state.pHP = Math.min(75, state.pHP + Math.floor(v * 0.4));
                     trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0); showNumber(Math.floor(v*0.4), true, true);
                 } else {
-                    let v = encoreDmg * 0.8; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = encoreDmg * 0.8; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pShield) { v = Math.floor(v * 0.4); state.pShield = false; }
                     dmg(Math.floor(v), true); state.aHP = Math.min(75, state.aHP + Math.floor(v*0.3));
                     trackTurn(); showNumber(Math.floor(v), false, true, chain>0); showNumber(Math.floor(v*0.3), true, false);
@@ -1477,11 +1477,11 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 20, ['#ff8f00','#ffca28','#fff','#ffe082'], 85);
                 await Promise.all([shake(chain > 0 ? 13 : 9), flashScreen('rgba(255,130,0,0.35)', 65)]);
                 if (isP) {
-                    let v = strumDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = strumDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aShield) { v = Math.floor(v * 0.4); state.aShield = false; }
                     dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                 } else {
-                    let v = strumDmg; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = strumDmg; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pShield) { v = Math.floor(v * 0.4); state.pShield = false; }
                     dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0);
                 }
@@ -1502,8 +1502,8 @@ async function resolve(card, isP) {
                     spawnParticles(impactX, impactY, 10, ['#ffa726','#ff8f00','#fff'], 60);
                     await Promise.all([shake(7), flashScreen('rgba(255,150,30,0.28)', 45)]);
                     let sd = drumDmg;
-                    if (isP && state.aTariff > 0) sd = Math.floor(sd * 0.5);
-                    if (!isP && state.pTariff > 0) sd = Math.floor(sd * 0.5);
+                    if (isP && state.pTariff > 0) sd = Math.floor(sd * 0.5);
+                    if (!isP && state.aTariff > 0) sd = Math.floor(sd * 0.5);
                     if (isP && state.aShield) { sd = Math.floor(sd * 0.4); state.aShield = false; }
                     if (!isP && state.pShield) { sd = Math.floor(sd * 0.4); state.pShield = false; }
                     dmg(sd, !isP);
@@ -1576,11 +1576,11 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 30, ['#ffd54f','#ff8f00','#fff','#ffe57a','#ffab00'], 115);
                 await Promise.all([chromaImpact(), shake(chain > 0 ? 18 : 12), flashScreen('rgba(255,180,0,0.5)', 85)]);
                 if (isP) {
-                    let v = crescendoDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = crescendoDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aShield) { v = Math.floor(v * 0.4); state.aShield = false; }
                     const preHP = state.aHP; dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                 } else {
-                    let v = crescendoDmg; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = crescendoDmg; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pShield) { v = Math.floor(v * 0.4); state.pShield = false; }
                     dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0);
                 }
@@ -1624,11 +1624,11 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 24, ['#d84315','#ff7043','#bf360c','#fff','#ffab91'], 100);
                 await Promise.all([chromaImpact(), shake(chain > 0 ? 15 : 10), flashScreen('rgba(200,60,10,0.4)', 75)]);
                 if (isP) {
-                    let v = cleaveDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = cleaveDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aShield) { v = Math.floor(v * 0.4); state.aShield = false; }
                     dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                 } else {
-                    let v = cleaveDmg; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = cleaveDmg; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pShield) { v = Math.floor(v * 0.4); state.pShield = false; }
                     dmg(v, true); trackTurn(); showNumber(v, false, true, chain>0);
                 }
@@ -1671,14 +1671,14 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 30, ['#a1887f','#8d6e63','#d7ccc8','#fff','#4e342e'], 120);
                 await Promise.all([chromaImpact(), shake(chain > 0 ? 20 : 14), flashScreen('rgba(120,80,30,0.45)', 85)]);
                 if (isP) {
-                    let v = destrierDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = destrierDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     const preHP = state.aHP;
                     if (state.aPet > 0) { state.aPet -= v; if (state.aPet < 0) state.aPet = 0; }
                     else state.aHP -= v;
                     trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                     if (state.aHP <= 0 && preHP > 0) checkAchs({ destrierKill: true });
                 } else {
-                    let v = state.pTariff > 0 ? Math.floor(destrierDmg*0.5) : destrierDmg;
+                    let v = state.aTariff > 0 ? Math.floor(destrierDmg*0.5) : destrierDmg;
                     if (state.pPet > 0) { state.pPet -= v; if (state.pPet < 0) state.pPet = 0; }
                     else state.pHP -= v;
                     trackTurn(); showNumber(v, false, true, chain>0);
@@ -1702,8 +1702,8 @@ async function resolve(card, isP) {
                     spawnParticles(impactX, impactY, 10, ['#a5d6a7','#66bb6a','#fff'], 55);
                     await Promise.all([shake(6), flashScreen('rgba(100,180,100,0.22)', 40)]);
                     let vd = volleyDmg;
-                    if (isP && state.aTariff > 0) vd = Math.floor(vd * 0.5);
-                    if (!isP && state.pTariff > 0) vd = Math.floor(vd * 0.5);
+                    if (isP && state.pTariff > 0) vd = Math.floor(vd * 0.5);
+                    if (!isP && state.aTariff > 0) vd = Math.floor(vd * 0.5);
                     if (isP && state.aShield) { vd = Math.floor(vd * 0.4); state.aShield = false; }
                     if (!isP && state.pShield) { vd = Math.floor(vd * 0.4); state.pShield = false; }
                     dmg(vd, !isP);
@@ -1757,13 +1757,13 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 20, ['#aed581','#7cb342','#dcedc8','#fff','#33691e'], 85);
                 await Promise.all([shake(9), flashScreen('rgba(120,180,60,0.3)', 60)]);
                 if (isP) {
-                    let v = hawkDmg; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = hawkDmg; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aPet > 0) { state.aPet -= v; if (state.aPet < 0) state.aPet = 0; }
                     else state.aHP -= v;
                     if (chain > 0) { stackPoison('a', 3, 3); }
                     trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                 } else {
-                    let v = hawkDmg; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = hawkDmg; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pPet > 0) { state.pPet -= v; if (state.pPet < 0) state.pPet = 0; }
                     else state.pHP -= v;
                     if (chain > 0) { stackPoison('p', 3, 3); }
@@ -1801,13 +1801,13 @@ async function resolve(card, isP) {
                 spawnParticles(impactX, impactY, 22, ['#795548','#4e342e','#a1887f','#fff','#d7ccc8'], 90);
                 await Promise.all([shake(9), flashScreen('rgba(80,40,10,0.35)', 65)]);
                 if (isP) {
-                    let v = necroInit; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
+                    let v = necroInit; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); }
                     if (state.aShield) { v = Math.floor(v*0.4); state.aShield = false; }
                     dmg(v, false); state.aBurn = 2; state.aBurnDmg = necroBurn;
                     if (chain > 0) { stackPoison('a', 2, 3); }
                     trackDamage(v, true); trackTurn(); showNumber(v, false, false, chain>0);
                 } else {
-                    let v = necroInit; if (state.pTariff > 0) v = Math.floor(v*0.5);
+                    let v = necroInit; if (state.aTariff > 0) v = Math.floor(v*0.5);
                     if (state.pShield) { v = Math.floor(v*0.4); state.pShield = false; }
                     dmg(v, true); state.pBurn = 2; state.pBurnDmg = necroBurn;
                     if (chain > 0) { stackPoison('p', 2, 3); }
@@ -1845,8 +1845,8 @@ async function resolve(card, isP) {
                     spawnImpactRing(impactX, impactY, '#69f0ae');
                     spawnParticles(impactX, impactY, 32, ['#1b5e20','#33691e','#69f0ae','#ccff90','#fff'], 120);
                     await Promise.all([chromaImpact(), shake(16), flashScreen('rgba(20,120,30,0.5)', 85)]);
-                    if (isP) { let v = pandInit; if (state.aTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); } dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, true); }
-                    else     { let v = state.pTariff > 0 ? Math.floor(pandInit*0.5) : pandInit; dmg(v, true); trackTurn(); showNumber(v, false, true, true); }
+                    if (isP) { let v = pandInit; if (state.pTariff > 0) { trackTariffBlock(v); v = Math.floor(v*0.5); } dmg(v, false); trackDamage(v, true); trackTurn(); showNumber(v, false, false, true); }
+                    else     { let v = state.aTariff > 0 ? Math.floor(pandInit*0.5) : pandInit; dmg(v, true); trackTurn(); showNumber(v, false, true, true); }
                 } else {
                     spawnParticles(490, 335, 26, ['#1b5e20','#33691e','#ccff90','#fff'], 100);
                     spawnImpactRing(490, 335, '#1b5e20');

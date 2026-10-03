@@ -338,3 +338,6 @@ body.theme-aero #menu-profile {
    fade (rgba(8,4,0,.9)), which sat as a visibly wrong dark box on top
    of this theme's own panel color — most jarring on light themes. */
 body.theme-aero #changelog-panel::after { background: linear-gradient(transparent, rgba(212,242,252,.98)) !important; }
+
+/* Win/defeat end-screen theming (reuses this theme's own --prf-bg palette). */
+body.theme-aero #screen-end { --end-bg1: rgba(230,248,255,.96); --end-bg2: rgba(212,242,252,.98); }

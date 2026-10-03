@@ -1779,3 +1779,12 @@ body.theme-ice #menu-profile {
     --prf-cover-a: #a8d0f0; --prf-cover-b: #c0e0f8;
     --prf-cover-c: #90c0e8; --prf-cover-d: #78b0e0;
 }
+
+/* Win/defeat end-screen theming (reuses each theme's own --prf-bg palette). */
+body.theme-blood #screen-end { --end-bg1: rgba(20,2,2,.98); --end-bg2: rgba(5,0,0,.99); }
+body.theme-arcane #screen-end { --end-bg1: rgba(24,4,45,.95); --end-bg2: rgba(8,0,20,.98); }
+body.theme-ocean #screen-end { --end-bg1: rgba(0,20,55,.95); --end-bg2: rgba(0,9,28,.98); }
+body.theme-forest #screen-end { --end-bg1: rgba(5,25,3,.95); --end-bg2: rgba(1,10,0,.98); }
+body.theme-ash #screen-end { --end-bg1: rgba(28,28,28,.95); --end-bg2: rgba(12,12,12,.98); }
+body.theme-gold #screen-end { --end-bg1: rgba(36,22,3,.95); --end-bg2: rgba(14,9,0,.98); }
+body.theme-ice #screen-end { --end-bg1: rgba(200,225,250,.95); --end-bg2: rgba(180,210,248,.98); }

@@ -185,13 +185,38 @@
 
         // ── Broadcast: zero-DB live move sync ──────────────────────────────────
         // Returns a { send(payload), unsub() } handle.
+        //
+        // channel.subscribe() is async (it's a WebSocket handshake) but was
+        // never awaited/confirmed here — send() could be, and was, called
+        // before the channel finished subscribing. supabase-js can't send
+        // over a socket that isn't open yet, so it silently falls back to
+        // its deprecated REST broadcast endpoint instead (the exact
+        // "Realtime send() is automatically falling back to REST API"
+        // warning). That REST fallback isn't just slower — on this project
+        // it comes back 401 Unauthorized, breaking the very first move or
+        // chat message sent right after a match/room opens, before the
+        // socket has had time to finish connecting. Fixed by queuing any
+        // send() calls made before the channel reports SUBSCRIBED, then
+        // flushing them once it does, so nothing ever reaches the
+        // REST-fallback path.
         broadcast: (roomCode) => {
+            let isReady = false;
+            const queue = [];
             const channel = sb.channel(`game-${roomCode}`, {
                 config: { broadcast: { self: false } }
             });
-            channel.subscribe();
+            channel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    isReady = true;
+                    while (queue.length) channel.send(queue.shift());
+                }
+            });
             return {
-                send: (payload) => channel.send({ type: 'broadcast', event: 'move', payload }),
+                send: (payload) => {
+                    const msg = { type: 'broadcast', event: 'move', payload };
+                    if (isReady) channel.send(msg);
+                    else queue.push(msg);
+                },
                 on:   (cb)      => { channel.on('broadcast', { event: 'move' }, ({ payload }) => cb(payload)); },
                 unsub: ()       => sb.removeChannel(channel),
             };

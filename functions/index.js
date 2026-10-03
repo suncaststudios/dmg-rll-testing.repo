@@ -114,3 +114,206 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
    so it's intentionally left out in favor of the bridge.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════
+   CLUB MODERATION — server-side authority
+   ---------------------------------------------------------------------
+   Every one of these actions writes to ANOTHER member's profiles/{uid}
+   document (their club_role, club_id, or club_mute_until) or to the
+   club document's banned map. Firestore security rules only let a user
+   write their own profile doc (auth.uid() == uid) — there is no rule
+   that could safely let "whoever happens to be club president" write
+   arbitrary fields on arbitrary other users' documents from the client,
+   since the client's own claim to be president is just JS state, easy
+   to fake by editing the page. That's exactly the client-side call
+   failing with "Missing or insufficient permissions" (js/clubs.js used
+   to call fsSet directly for all of these).
+
+   Every function below re-derives the caller's role from Firestore
+   itself — never trusts a role the client claims to have — and only
+   then performs the write with the Admin SDK, which isn't subject to
+   security rules at all. This is also what closes the "client-side-only
+   permission check" gap flagged earlier: even a modified client can no
+   longer kick/ban/mute/reassign roles without actually holding that
+   role server-side.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const CLUB_ROLE_RANK = { member: 0, officer: 1, vp: 2, president: 3 };
+
+function _requireAuth(context) {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be signed in.');
+    }
+    return context.auth.uid;
+}
+
+async function _getClub(clubId) {
+    const snap = await admin.firestore().collection('clubs').doc(clubId).get();
+    if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Club not found.');
+    return { id: snap.id, ...snap.data() };
+}
+
+async function _deriveRole(club, uid) {
+    if (club.owner_id === uid) return 'president';
+    const snap = await admin.firestore().collection('profiles').doc(uid).get();
+    return snap.exists ? (snap.data().club_role || 'member') : 'member';
+}
+
+function _canKick(role)  { return role === 'president' || role === 'vp'; }
+function _canBan(role)   { return role === 'president'; }
+function _canMute(role)  { return role === 'president' || role === 'vp' || role === 'officer'; }
+function _canAssignRole(myRole, targetRole, newRole) {
+    if (myRole === 'president') return targetRole !== 'president' && newRole !== 'president';
+    if (myRole === 'vp') {
+        return (targetRole === 'member' || targetRole === 'officer')
+            && (newRole === 'member' || newRole === 'officer');
+    }
+    return false;
+}
+function _deny(msg) { throw new functions.https.HttpsError('permission-denied', msg || "You don't have permission to do that."); }
+
+exports.clubSetRole = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId, targetUid, newRole } = data || {};
+    if (!clubId || !targetUid || !newRole) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId, targetUid, or newRole.');
+    if (!(newRole in CLUB_ROLE_RANK)) throw new functions.https.HttpsError('invalid-argument', 'Invalid role.');
+
+    const club = await _getClub(clubId);
+    const myRole = await _deriveRole(club, uid);
+    const targetRole = await _deriveRole(club, targetUid);
+    if (!_canAssignRole(myRole, targetRole, newRole)) _deny();
+
+    await admin.firestore().collection('profiles').doc(targetUid)
+        .set({ club_role: newRole === 'member' ? null : newRole }, { merge: true });
+    return { success: true };
+});
+
+exports.clubKick = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId, targetUid } = data || {};
+    if (!clubId || !targetUid) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId or targetUid.');
+
+    const club = await _getClub(clubId);
+    const myRole = await _deriveRole(club, uid);
+    if (!_canKick(myRole)) _deny();
+    if (targetUid === club.owner_id) _deny("The president can't be kicked.");
+
+    await admin.firestore().collection('profiles').doc(targetUid)
+        .set({ club_id: null, club_role: null }, { merge: true });
+    return { success: true };
+});
+
+exports.clubBan = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId, targetUid, hours } = data || {}; // hours: number, or null/undefined for permanent
+    if (!clubId || !targetUid) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId or targetUid.');
+
+    const club = await _getClub(clubId);
+    const myRole = await _deriveRole(club, uid);
+    if (!_canBan(myRole)) _deny();
+    if (targetUid === club.owner_id) _deny("The president can't be banned.");
+
+    const maxHours = club.max_ban_hours || null;
+    const requestedHours = (typeof hours === 'number' && hours > 0) ? hours : null;
+    const cappedHours = (requestedHours !== null && maxHours) ? Math.min(requestedHours, maxHours) : requestedHours;
+    const until = cappedHours === null ? null : Date.now() + cappedHours * 3600000;
+
+    const banned = { ...(club.banned || {}) };
+    banned[targetUid] = { until, by: uid, at: Date.now() };
+
+    await admin.firestore().collection('clubs').doc(clubId).set({ banned }, { merge: true });
+    await admin.firestore().collection('profiles').doc(targetUid)
+        .set({ club_id: null, club_role: null }, { merge: true });
+    return { success: true };
+});
+
+exports.clubUnban = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId, targetUid } = data || {};
+    if (!clubId || !targetUid) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId or targetUid.');
+
+    const club = await _getClub(clubId);
+    const myRole = await _deriveRole(club, uid);
+    if (!_canBan(myRole)) _deny();
+
+    const banned = { ...(club.banned || {}) };
+    delete banned[targetUid];
+    await admin.firestore().collection('clubs').doc(clubId).set({ banned }, { merge: true });
+    return { success: true };
+});
+
+exports.clubMute = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId, targetUid, minutes } = data || {};
+    if (!clubId || !targetUid || !minutes) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId, targetUid, or minutes.');
+
+    const club = await _getClub(clubId);
+    const myRole = await _deriveRole(club, uid);
+    if (!_canMute(myRole)) _deny();
+    if (targetUid === club.owner_id) _deny("The president can't be muted.");
+
+    const maxMin = Math.round((club.max_mute_seconds || 86400) / 60);
+    const cappedMin = Math.max(1, Math.min(maxMin, minutes));
+    const until = Date.now() + cappedMin * 60000;
+
+    await admin.firestore().collection('profiles').doc(targetUid)
+        .set({ club_mute_until: until }, { merge: true });
+    return { success: true, minutes: cappedMin };
+});
+
+exports.clubUnmute = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId, targetUid } = data || {};
+    if (!clubId || !targetUid) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId or targetUid.');
+
+    const club = await _getClub(clubId);
+    const myRole = await _deriveRole(club, uid);
+    if (!_canMute(myRole)) _deny();
+
+    await admin.firestore().collection('profiles').doc(targetUid)
+        .set({ club_mute_until: null }, { merge: true });
+    return { success: true };
+});
+
+exports.clubTransferPresidency = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId, targetUid } = data || {};
+    if (!clubId || !targetUid) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId or targetUid.');
+
+    const club = await _getClub(clubId);
+    const myRole = await _deriveRole(club, uid);
+    if (myRole !== 'president') _deny('Only the president can transfer presidency.');
+    if (targetUid === uid) _deny("You're already president.");
+
+    await admin.firestore().collection('clubs').doc(clubId).set({ owner_id: targetUid }, { merge: true });
+    await admin.firestore().collection('profiles').doc(targetUid).set({ club_role: null }, { merge: true }); // new president — role derives from owner_id
+    await admin.firestore().collection('profiles').doc(uid).set({ club_role: 'vp' }, { merge: true }); // outgoing president becomes VP
+    return { success: true };
+});
+
+exports.clubDisband = functions.https.onCall(async (data, context) => {
+    const uid = _requireAuth(context);
+    const { clubId } = data || {};
+    if (!clubId) throw new functions.https.HttpsError('invalid-argument', 'Missing clubId.');
+
+    const club = await _getClub(clubId);
+    if (club.owner_id !== uid) _deny('Only the president can disband the club.');
+
+    // Firestore has no FK cascade — every member pointing at this club
+    // (club_id + club_role + any active mute) needs clearing explicitly,
+    // or they're left referencing a club document that's about to not
+    // exist. Doing this here (admin-privileged, single server-side call)
+    // is also what makes it atomic-in-practice from the client's view —
+    // the previous client-side version could delete the club doc (which
+    // the owner IS allowed to do directly) while the per-member profile
+    // clears silently failed one by one on permission-denied, leaving
+    // other members' profiles still pointing at a deleted club.
+    const membersSnap = await admin.firestore().collection('profiles').where('club_id', '==', clubId).get();
+    const batch = admin.firestore().batch();
+    membersSnap.forEach(doc => {
+        batch.set(doc.ref, { club_id: null, club_role: null, club_mute_until: null }, { merge: true });
+    });
+    batch.delete(admin.firestore().collection('clubs').doc(clubId));
+    await batch.commit();
+
+    return { success: true };
+});

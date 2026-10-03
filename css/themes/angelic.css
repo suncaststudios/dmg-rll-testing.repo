@@ -305,3 +305,6 @@ body.theme-angelic #menu-profile {
    fade (rgba(8,4,0,.9)), which sat as a visibly wrong dark box on top
    of this theme's own panel color — most jarring on light themes. */
 body.theme-angelic #changelog-panel::after { background: linear-gradient(transparent, #ffffff) !important; }
+
+/* Win/defeat end-screen theming (reuses this theme's own --prf-bg palette). */
+body.theme-angelic #screen-end { --end-bg1: #ffffff; --end-bg2: #f8f9fa; }

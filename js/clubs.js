@@ -62,6 +62,29 @@ function _clubApplyBannerBg(elId, club) {
     card.style.background = bg || '';
 }
 
+/* Calls a club-moderation Cloud Function (see functions/index.js) — kick,
+   ban, mute, role changes, presidency transfer, disband. These can't be
+   done as plain client-side Firestore writes: they write to ANOTHER
+   member's profile document, which Firestore security rules correctly
+   refuse (a user can only write their own profile doc; there's no safe
+   client-side way to prove "I'm actually club president" to a rule).
+   The Cloud Function re-derives the caller's role from the database
+   itself before doing anything, so this is also what makes moderation
+   permissions real rather than just a client-side UI gate. Returns
+   { data, error } like the other backend helpers in this file. */
+async function _clubCallFn(name, payload) {
+    try {
+        if (typeof firebase === 'undefined' || typeof firebase.functions !== 'function') {
+            return { error: { message: "Moderation actions aren't available right now — missing SDK." } };
+        }
+        const call = firebase.functions().httpsCallable(name);
+        const res = await call(payload);
+        return { data: res.data, error: null };
+    } catch (e) {
+        return { error: { message: e.message || 'Something went wrong.', code: e.code } };
+    }
+}
+
 /* Sub-tabs available under each big tab. Some are conditional (settings
    only for the president, tournament/settings only while in a club) —
    filtered at render time in _clubsRenderSubTabs(). */
@@ -218,11 +241,10 @@ async function _clubKickMember(uid, name) {
     if (!_clubCanKick(_clubsState.myRole) || !_clubsState.myClub) return;
     if (uid === _clubsState.myClub.owner_id) { alert("The president can't be kicked."); return; }
     if (!confirm(`Kick ${name || 'this member'} from the club?`)) return;
-    try {
-        await fsSet('profiles', uid, { club_id: null, club_role: null });
-        await _clubRefreshMemberPanel();
-        if (typeof playSfx === 'function') playSfx('menuClick');
-    } catch(e) { console.warn('[DR Clubs] kick error', e); }
+    const { error } = await _clubCallFn('clubKick', { clubId: _clubsState.myClub.id, targetUid: uid });
+    if (error) { _shopToast?.(error.message || 'Could not kick that member.', '❌'); console.warn('[DR Clubs] kick error', error); return; }
+    await _clubRefreshMemberPanel();
+    if (typeof playSfx === 'function') playSfx('menuClick');
 }
 
 async function _clubBanMember(uid, name) {
@@ -237,30 +259,20 @@ async function _clubBanMember(uid, name) {
     );
     if (input === null) return;
     const hours = input.trim() === '' ? null : Math.max(1, parseFloat(input) || 1);
-    const cappedHours = (hours !== null && maxHours) ? Math.min(hours, maxHours) : hours;
-    const until = cappedHours === null ? null : Date.now() + cappedHours * 3600000;
-    try {
-        const club = _clubsState.myClub;
-        const banned = { ...(club.banned || {}) };
-        banned[uid] = { until, reason: '', by: _syncedUid, at: Date.now() };
-        await fsSet('clubs', club.id, { banned });
-        await fsSet('profiles', uid, { club_id: null, club_role: null });
-        club.banned = banned;
-        await _clubRefreshMemberPanel();
-        _shopToast?.(`${name || 'Member'} ${until ? 'banned' : 'permanently banned'}.`, '🔨');
-    } catch(e) { console.warn('[DR Clubs] ban error', e); }
+
+    const { error } = await _clubCallFn('clubBan', { clubId: _clubsState.myClub.id, targetUid: uid, hours });
+    if (error) { _shopToast?.(error.message || 'Could not ban that member.', '❌'); console.warn('[DR Clubs] ban error', error); return; }
+    await _clubRefreshMemberPanel();
+    _clubRenderBannedList();
+    _shopToast?.(`${name || 'Member'} ${hours ? 'banned' : 'permanently banned'}.`, '🔨');
 }
 
 async function _clubUnbanMember(uid) {
     if (!_clubCanBan(_clubsState.myRole) || !_clubsState.myClub) return;
-    try {
-        const club = _clubsState.myClub;
-        const banned = { ...(club.banned || {}) };
-        delete banned[uid];
-        await fsSet('clubs', club.id, { banned });
-        club.banned = banned;
-        await _clubRefreshMemberPanel();
-    } catch(e) { console.warn('[DR Clubs] unban error', e); }
+    const { error } = await _clubCallFn('clubUnban', { clubId: _clubsState.myClub.id, targetUid: uid });
+    if (error) { _shopToast?.(error.message || 'Could not unban that member.', '❌'); console.warn('[DR Clubs] unban error', error); return; }
+    await _clubRefreshMemberPanel();
+    _clubRenderBannedList();
 }
 
 /* Checks whether `uid` is currently banned from `club` (used when
@@ -278,21 +290,19 @@ async function _clubMuteMember(uid, name) {
     const maxMin = Math.round((_clubsState.myClub.max_mute_seconds || 86400) / 60);
     const input = prompt(`Mute duration in minutes (club max: ${maxMin}m):`, Math.min(30, maxMin));
     if (input === null) return;
-    const minutes = Math.max(1, Math.min(maxMin, parseFloat(input) || 1));
-    const until = Date.now() + minutes * 60000;
-    try {
-        await fsSet('profiles', uid, { club_mute_until: until });
-        await _clubRefreshMemberPanel();
-        _shopToast?.(`${name || 'Member'} muted for ${minutes}m.`, '🔇');
-    } catch(e) { console.warn('[DR Clubs] mute error', e); }
+    const minutes = Math.max(1, parseFloat(input) || 1);
+
+    const { data, error } = await _clubCallFn('clubMute', { clubId: _clubsState.myClub.id, targetUid: uid, minutes });
+    if (error) { _shopToast?.(error.message || 'Could not mute that member.', '❌'); console.warn('[DR Clubs] mute error', error); return; }
+    await _clubRefreshMemberPanel();
+    _shopToast?.(`${name || 'Member'} muted for ${data?.minutes ?? minutes}m.`, '🔇');
 }
 
 async function _clubUnmuteMember(uid) {
-    if (!_clubCanMute(_clubsState.myRole)) return;
-    try {
-        await fsSet('profiles', uid, { club_mute_until: null });
-        await _clubRefreshMemberPanel();
-    } catch(e) { console.warn('[DR Clubs] unmute error', e); }
+    if (!_clubCanMute(_clubsState.myRole) || !_clubsState.myClub) return;
+    const { error } = await _clubCallFn('clubUnmute', { clubId: _clubsState.myClub.id, targetUid: uid });
+    if (error) { _shopToast?.(error.message || 'Could not unmute that member.', '❌'); console.warn('[DR Clubs] unmute error', error); return; }
+    await _clubRefreshMemberPanel();
 }
 
 async function _clubSetMemberRole(uid, targetCurrentRole, newRole, name) {
@@ -301,11 +311,10 @@ async function _clubSetMemberRole(uid, targetCurrentRole, newRole, name) {
         alert("You don't have permission to assign that role.");
         return;
     }
-    try {
-        await fsSet('profiles', uid, { club_role: newRole === 'member' ? null : newRole });
-        await _clubRefreshMemberPanel();
-        _shopToast?.(`${name || 'Member'} is now ${CLUB_ROLE_LABEL[newRole]}.`, '🎖');
-    } catch(e) { console.warn('[DR Clubs] set role error', e); }
+    const { error } = await _clubCallFn('clubSetRole', { clubId: _clubsState.myClub.id, targetUid: uid, newRole });
+    if (error) { _shopToast?.(error.message || 'Could not change that role.', '❌'); console.warn('[DR Clubs] set role error', error); return; }
+    await _clubRefreshMemberPanel();
+    _shopToast?.(`${name || 'Member'} is now ${CLUB_ROLE_LABEL[newRole]}.`, '🎖');
 }
 
 /* Presidency transfer — irreversible from the outgoing president's
@@ -319,22 +328,25 @@ async function _clubTransferPresidency(uid, name) {
         `You will become Vice President and CANNOT get the club back unless the new president gives it to you. This cannot be undone. Continue?`
     );
     if (!ok) return;
-    try {
-        const club = _clubsState.myClub;
-        await fsSet('clubs', club.id, { owner_id: uid });
-        await fsSet('profiles', uid, { club_role: null }); // new president — role derived from owner_id
-        await fsSet('profiles', _syncedUid, { club_role: 'vp' });
-        club.owner_id = uid;
-        _clubsState.myRole = 'vp';
-        await _clubRefreshMemberPanel();
-        _renderMyClub(club);
-        _shopToast?.(`Presidency transferred to ${name || 'the new president'}.`, '👑');
-    } catch(e) { console.warn('[DR Clubs] transfer presidency error', e); }
+    const club = _clubsState.myClub;
+    const { error } = await _clubCallFn('clubTransferPresidency', { clubId: club.id, targetUid: uid });
+    if (error) { _shopToast?.(error.message || 'Could not transfer presidency.', '❌'); console.warn('[DR Clubs] transfer presidency error', error); return; }
+    club.owner_id = uid;
+    _clubsState.myRole = 'vp';
+    await _clubRefreshMemberPanel();
+    _renderMyClub(club);
+    _shopToast?.(`Presidency transferred to ${name || 'the new president'}.`, '👑');
 }
 
 async function _clubRefreshMemberPanel() {
     if (!_clubsState.myClub) return;
     try {
+        // Re-fetch the club doc too, not just the member list — ban/unban
+        // now happen via Cloud Function (server writes club.banned
+        // directly in Firestore), so the local _clubsState.myClub copy
+        // has no way to know about that change unless we pull it fresh.
+        const freshClub = await fsGet('clubs', _clubsState.myClub.id);
+        if (freshClub) Object.assign(_clubsState.myClub, freshClub);
         const members = await fsWhere('profiles', 'club_id', _clubsState.myClub.id, 250);
         _renderClubMemberList(members, _clubsState.myClub);
     } catch(e) { console.warn('[DR Clubs] refresh member panel error', e); }
@@ -396,6 +408,7 @@ function _clubSettingsPopulate() {
         b.classList.toggle('active', b.dataset.val === (club.visibility || 'public')));
     _clubInviteCodeRefreshVisibility();
     _clubRenderClubCosmeticsPicker();
+    _clubRenderBannedList();
     _clubSetTxt('cs-edit-status', '');
     _clubSetTxt('cs-danger-status', '');
     _clubSettingsSwitchTab('content');
@@ -532,6 +545,49 @@ async function _clubClearBanner() {
     } catch(e) { console.warn('[DR Clubs] clear banner error', e); }
 }
 
+/* ── Banned members list (Settings, president-only) ──
+   _clubUnbanMember already existed (called from here) but had no UI
+   anywhere to trigger it — this was the missing gap. */
+async function _clubRenderBannedList() {
+    const wrap = document.getElementById('cs-banned-list');
+    if (!wrap || !_clubsState.myClub) return;
+    const club = _clubsState.myClub;
+    const banned = club.banned || {};
+
+    // Only show bans that are still actually in effect — an expired
+    // temp-ban clutters the list for no reason once it's lapsed on its
+    // own (it stops blocking rejoining automatically, so there's
+    // nothing left to "unban" there).
+    const activeEntries = Object.entries(banned).filter(([, entry]) => entry.until === null || Date.now() < entry.until);
+
+    if (!activeEntries.length) {
+        wrap.innerHTML = `<div style="font-size:9px;color:rgba(100,65,20,0.5);">No one is currently banned.</div>`;
+        return;
+    }
+
+    wrap.innerHTML = `<div style="font-size:9px;color:rgba(100,65,20,0.5);">Loading…</div>`;
+    try {
+        const rows = await Promise.all(activeEntries.map(async ([uid, entry]) => {
+            const profile = await fsGet('profiles', uid).catch(() => null);
+            const name = _clubEsc(profile?.username || 'Unknown player');
+            const durationLabel = entry.until === null
+                ? 'Permanent'
+                : `Until ${new Date(entry.until).toLocaleDateString()}`;
+            return `
+                <div class="clubs-member-row" style="cursor:default;">
+                    <span class="clubs-member-avatar">${profile?.avatar || '⚔️'}</span>
+                    <span class="clubs-member-name">${name}</span>
+                    <span style="font-size:8px;letter-spacing:1px;text-transform:uppercase;color:#8a5a3a;flex-shrink:0;margin-right:6px;">${durationLabel}</span>
+                    <button class="clubs-member-action-btn" style="width:auto;padding:0 10px;font-size:8px;letter-spacing:1px;text-transform:uppercase;" onclick="_clubUnbanMember('${uid}')" title="Unban">Unban</button>
+                </div>`;
+        }));
+        wrap.innerHTML = rows.join('');
+    } catch(e) {
+        wrap.innerHTML = `<div style="font-size:9px;color:rgba(180,60,60,0.7);">Couldn't load the banned list.</div>`;
+        console.warn('[DR Clubs] render banned list error', e);
+    }
+}
+
 
 async function _clubJoinByCode() {
     const status = document.getElementById('clubs-joincode-status');
@@ -627,24 +683,26 @@ async function _clubSettingsDelete() {
     if (!confirm(`Disband ${club.name}? This removes every member and cannot be undone.`)) return;
 
     if (status) status.textContent = 'Disbanding…';
-    try {
-        // Firestore has no FK cascade — clearing club_id off every member's
-        // profile has to happen explicitly, or they'd be left pointing at
-        // a club document that no longer exists.
-        const members = await fsWhere('profiles', 'club_id', club.id, 200);
-        await Promise.all(members.map(m => fsSet('profiles', m.id, { club_id: null })));
-        await fsDelete('clubs', club.id);
-
-        _clubsState.myClub = null;
-        _clubsState.myRole = null;
-        _renderMyClub(null);
-        _refreshClubQuestState();
-        switchClubsBigTab('myclub');
-        if (typeof _showGoldToast === 'function') _showGoldToast(`${club.name} has been disbanded.`);
-    } catch(e) {
-        if (status) status.textContent = 'Error — try again.';
-        console.warn('[DR Clubs] disband error', e);
+    // Cloud Function, not a direct client write — clearing club_id off
+    // every OTHER member's profile requires admin privileges (Firestore
+    // rules only let a user write their own profile doc). The old
+    // client-side version could delete the club doc directly (the
+    // owner IS allowed to do that) while the per-member clears failed
+    // silently one by one on permission-denied, leaving every other
+    // member's profile still pointing at a club that no longer existed.
+    const { error } = await _clubCallFn('clubDisband', { clubId: club.id });
+    if (error) {
+        if (status) status.textContent = error.message || 'Error — try again.';
+        console.warn('[DR Clubs] disband error', error);
+        return;
     }
+
+    _clubsState.myClub = null;
+    _clubsState.myRole = null;
+    _renderMyClub(null);
+    _refreshClubQuestState();
+    switchClubsBigTab('myclub');
+    if (typeof _showGoldToast === 'function') _showGoldToast(`${club.name} has been disbanded.`);
 }
 
 function _renderMyClub(club) {
@@ -1071,6 +1129,7 @@ function _clubEsc(s) {
    works): message history isn't persisted, so it's empty again next
    time you open the tab. */
 let _clubChatChannel = null;
+let _clubChatChannelReady = false;
 
 function _openClubChat() {
     if (!_clubsState.myClub) return;
@@ -1079,11 +1138,17 @@ function _openClubChat() {
 
     const sb = window._supabase;
     if (!sb) return;
+    _clubChatChannelReady = false;
     const ch = sb.channel('club-chat-' + _clubsState.myClub.id, {
         config: { broadcast: { self: false } }
     });
     ch.on('broadcast', { event: 'chat' }, ({ payload }) => _receiveClubChatMessage(payload));
-    ch.subscribe();
+    // Same fix as window._db.broadcast() in supabase.js: don't let a
+    // send() happen before the socket actually finishes subscribing, or
+    // supabase-js quietly falls back to a REST endpoint that 401s here
+    // — someone opening club chat and sending a message right away
+    // (very much the common case) would hit this every time.
+    ch.subscribe((status) => { if (status === 'SUBSCRIBED') _clubChatChannelReady = true; });
     ch._clubId = _clubsState.myClub.id;
     _clubChatChannel = ch;
 
@@ -1093,6 +1158,7 @@ function _openClubChat() {
 
 function _closeClubChat() {
     if (_clubChatChannel) { _clubChatChannel.unsubscribe(); _clubChatChannel = null; }
+    _clubChatChannelReady = false;
 }
 
 async function sendClubChatMessage() {
@@ -1111,6 +1177,11 @@ async function sendClubChatMessage() {
         ts:   Date.now(),
     };
     _renderClubChatMessage(msg, true);   // show our own immediately (broadcast excludes sender)
+    // Wait briefly for the channel to finish subscribing rather than
+    // sending straight away — see the comment in _openClubChat() for
+    // why an early send silently 401s on this project instead of just
+    // working a little slower.
+    for (let i = 0; i < 20 && !_clubChatChannelReady; i++) await new Promise(r => setTimeout(r, 100));
     _clubChatChannel.send({ type: 'broadcast', event: 'chat', payload: msg });
     input.value = '';
 }

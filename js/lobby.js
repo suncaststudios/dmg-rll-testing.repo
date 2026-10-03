@@ -789,10 +789,12 @@ async function _lobbyExecuteKick(uid) {
     _lobby.players = _lobby.players.filter(p => p.uid !== uid);
     _lobbyRenderAll();
     // Broadcast the kick so the kicked player's client calls _lobbyLeave
-    _lobby.channel?.send({
-        type: 'broadcast', event: 'player_leave',
-        payload: { uid, name: '', wasHost: false, kicked: true }
-    });
+    if (_lobby.channel?.state === 'joined') {
+        _lobby.channel.send({
+            type: 'broadcast', event: 'player_leave',
+            payload: { uid, name: '', wasHost: false, kicked: true }
+        });
+    }
     // Host writes updated player list via CAS (1 write, unavoidable for
     // persistence) so a concurrent join can't get wiped by this kick.
     if (_lobby.isHost) {
@@ -861,7 +863,12 @@ function _lobbyViewProfile(uid) {
     // profiles = Firestore now, not Supabase (see js/firestore-db.js) —
     // a player's own profile looks the same no matter which lobby/region
     // someone is viewing it from.
-    // Build/show modal immediately with loading state
+    //
+    // Reuses the exact same .prf-* classes as the real Profile menu
+    // (#menu-profile in index.html) instead of one-off inline styles —
+    // previously this was a plain generic card that looked nothing like
+    // "your own profile" does, and didn't pick up theme colors at all
+    // since none of the --prf-* variables applied to inline styles.
     let modal = document.getElementById('lobby-profile-modal');
     if (!modal) {
         modal = document.createElement('div');
@@ -875,26 +882,22 @@ function _lobbyViewProfile(uid) {
     }
     modal.style.display = 'flex';
     modal.innerHTML = `
-        <div style="
-            background:linear-gradient(160deg,#1a1005 0%,#0d0800 100%);
-            border:1px solid rgba(140,95,25,0.45);border-radius:12px;
-            padding:28px 32px;min-width:300px;max-width:420px;width:90%;
-            box-shadow:0 8px 48px rgba(0,0,0,0.8);font-family:'Cinzel',serif;color:#d4b878;
-            position:relative;
-        ">
-            <button onclick="document.getElementById('lobby-profile-modal').remove()" style="
-                position:absolute;top:12px;right:14px;background:none;border:none;
-                color:rgba(200,160,80,0.5);font-size:18px;cursor:pointer;
-            ">✕</button>
-            <div id="lpm-content" style="text-align:center;padding:20px 0;">
-                <div style="color:rgba(200,160,80,0.5);font-size:11px;letter-spacing:2px;">LOADING…</div>
+        <div class="prf-wrap" style="max-height:88vh; overflow-y:auto;">
+            <div class="prf-cover">
+                <div class="prf-cover-btns">
+                    <button class="prf-close-x" onclick="document.getElementById('lobby-profile-modal').remove()">✕</button>
+                </div>
+            </div>
+            <div class="prf-card" id="lpm-content">
+                <div class="prf-avatar-row"><div class="prf-avatar-wrap"><div class="profile-avatar prf-avatar">⏳</div></div></div>
+                <div class="prf-username" style="justify-content:center;">Loading…</div>
             </div>
         </div>
     `;
 
     if (!uid) {
-        document.getElementById('lpm-content').innerHTML =
-            '<div style="color:#c0392b;font-size:11px;">Could not load profile.</div>';
+        const c = document.getElementById('lpm-content');
+        if (c) c.innerHTML = '<div style="color:#c0392b;font-size:11px;padding:16px 0;text-align:center;">Could not load profile.</div>';
         return;
     }
 
@@ -903,7 +906,7 @@ function _lobbyViewProfile(uid) {
             const c = document.getElementById('lpm-content');
             if (!c) return;
             if (!data) {
-                c.innerHTML = '<div style="color:#c0392b;font-size:11px;">Profile not found.</div>';
+                c.innerHTML = '<div style="color:#c0392b;font-size:11px;padding:16px 0;text-align:center;">Profile not found.</div>';
                 return;
             }
             const wins   = data.wins   || 0;
@@ -913,19 +916,26 @@ function _lobbyViewProfile(uid) {
             const level  = data.level || 1;
             const tier   = typeof levelTier === 'function' ? levelTier(level) : { label:'Iron', color:'#888', icon:'⚙️' };
             const avHtml = data.avatar_img
-                ? `<img src="${data.avatar_img}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid rgba(200,160,40,0.5);">`
-                : `<div style="font-size:40px;line-height:1;">${data.avatar || '⚔️'}</div>`;
+                ? `<img src="${data.avatar_img}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
+                : (data.avatar || '⚔️');
+            const escapedName = typeof _clubEsc === 'function' ? _clubEsc(data.username || 'Unknown') : (data.username || 'Unknown');
+            const namePlate = typeof renderNamePlate === 'function' ? renderNamePlate(escapedName, data.equipped_cosmetics) : escapedName;
+
             c.innerHTML = `
-                <div style="margin-bottom:10px;">${avHtml}</div>
-                <div style="font-size:15px;font-weight:bold;letter-spacing:1px;margin-bottom:2px;">${data.username || 'Unknown'}</div>
-                <div style="font-size:10px;color:${tier.color||'#c8a460'};letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">${tier.icon} Lv.${level} ${tier.label}</div>
-                ${data.quote ? `<div style="font-size:10px;color:rgba(200,160,80,0.6);font-style:italic;margin-bottom:10px;">"${data.quote}"</div>` : ''}
-                <div style="display:flex;gap:16px;justify-content:center;margin-bottom:${data.bio?'12px':'0'};">
-                    <div><div style="font-size:16px;font-weight:bold;">${wins}</div><div style="font-size:8px;letter-spacing:2px;opacity:.6;">WINS</div></div>
-                    <div><div style="font-size:16px;font-weight:bold;">${losses}</div><div style="font-size:8px;letter-spacing:2px;opacity:.6;">LOSSES</div></div>
-                    <div><div style="font-size:16px;font-weight:bold;">${wr}%</div><div style="font-size:8px;letter-spacing:2px;opacity:.6;">WIN RATE</div></div>
+                <div class="prf-avatar-row" style="justify-content:center;">
+                    <div class="prf-avatar-wrap"><div class="profile-avatar prf-avatar">${avHtml}</div></div>
                 </div>
-                ${data.bio ? `<div style="font-size:10px;color:rgba(200,160,80,0.55);margin-top:8px;line-height:1.5;">${data.bio}</div>` : ''}
+                <div class="prf-username" style="justify-content:center;">${namePlate}</div>
+                <div class="prf-handle" style="text-align:center;">${tier.icon} Lv.${level} ${tier.label}</div>
+                ${data.quote ? `<div class="prf-sub" style="justify-content:center; font-style:italic;">"${_clubEsc ? _clubEsc(data.quote) : data.quote}"</div>` : ''}
+                <div class="prf-stats-row">
+                    <div class="prf-stat"><div class="prf-stat-val">${wins}</div><div class="prf-stat-label">Wins</div></div>
+                    <div class="profile-stat-divider"></div>
+                    <div class="prf-stat"><div class="prf-stat-val">${losses}</div><div class="prf-stat-label">Losses</div></div>
+                    <div class="profile-stat-divider"></div>
+                    <div class="prf-stat"><div class="prf-stat-val">${wr}%</div><div class="prf-stat-label">Win Rate</div></div>
+                </div>
+                ${data.bio ? `<div class="prf-bio" style="text-align:center;">${_clubEsc ? _clubEsc(data.bio) : data.bio}</div>` : ''}
             `;
         });
 }
@@ -988,8 +998,19 @@ async function _lobbyLeave(kicked = false) {
     const wasHost = _lobby.isHost;
     const myName  = (window._getDisplayName ? window._getDisplayName() : _profileData.username) || 'Wanderer';
 
-    // Broadcast leave immediately (before unsubscribing)
-    if (_lobby.channel) {
+    // Broadcast leave immediately (before unsubscribing) — only if the
+    // channel is actually still joined. If it's gone stale (e.g. the
+    // socket silently dropped while the room sat idle), supabase-js
+    // falls back to a deprecated REST broadcast endpoint that 401s on
+    // this project, and that failure surfaces in the console as a
+    // network error regardless of this being wrapped in try/catch
+    // (the catch only suppresses the promise rejection, not Chrome
+    // logging the underlying failed fetch). The DB write further down
+    // is what actually removes the player and is the real source of
+    // truth here — this broadcast is just a nicer, instant notice to
+    // other clients still in the room, so skipping it when the channel
+    // isn't ready costs nothing functionally.
+    if (_lobby.channel && _lobby.channel.state === 'joined') {
         try {
             await _lobby.channel.send({
                 type: 'broadcast', event: 'player_leave',

@@ -293,3 +293,6 @@ body.theme-8space #menu-profile {
    fade (rgba(8,4,0,.9)), which sat as a visibly wrong dark box on top
    of this theme's own panel color — most jarring on light themes. */
 body.theme-8space #changelog-panel::after { background: linear-gradient(transparent, #0a0722) !important; }
+
+/* Win/defeat end-screen theming (reuses this theme's own --prf-bg palette). */
+body.theme-8space #screen-end { --end-bg1: #0a0722; --end-bg2: #05030d; }

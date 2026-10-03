@@ -301,3 +301,6 @@ body.theme-cyberpunk #menu-profile {
    fade (rgba(8,4,0,.9)), which sat as a visibly wrong dark box on top
    of this theme's own panel color — most jarring on light themes. */
 body.theme-cyberpunk #changelog-panel::after { background: linear-gradient(transparent, rgba(5,0,12,.99)) !important; }
+
+/* Win/defeat end-screen theming (reuses this theme's own --prf-bg palette). */
+body.theme-cyberpunk #screen-end { --end-bg1: rgba(14,0,28,.98); --end-bg2: rgba(5,0,12,.99); }

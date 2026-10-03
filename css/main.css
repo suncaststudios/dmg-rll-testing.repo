@@ -34,6 +34,11 @@
             --prf-cover-b: #5a2200;
             --prf-cover-c: #2a1000;
             --prf-cover-d: #100400;
+            /* Win/defeat screen background — same reasoning as --prf-*
+               above: a separate variable set so each theme can restyle
+               it without touching anything else. */
+            --end-bg1: rgba(30,12,2,0.97);
+            --end-bg2: rgba(5,2,0,0.99);
             --ui-scale: 1.15;
             --anim-speed: 1;
             --card-darkness: 0;
@@ -160,6 +165,19 @@
                nothing ever pushed past the visible viewport. */
             width: calc(100vw / var(--ui-scale, 1));
             height: calc(100vh / var(--ui-scale, 1));
+            /* 100vh on mobile browsers measures the viewport with the
+               address bar hidden, not the actual visible area — the real
+               visible height shrinks whenever the browser chrome is
+               showing, but this fixed box doesn't shrink with it. Content
+               that's vertically centered via flex (like #screen-end, the
+               win/defeat screen) ends up centered against the WRONG,
+               too-tall height, which reads as it being pinned toward the
+               top with a plain gap below wherever the real page background
+               shows through beneath the mismatched box. 100dvh tracks the
+               real, current visible viewport instead; the 100vh rule right
+               above stays as a fallback for browsers that don't support
+               dvh yet, since this line simply doesn't apply otherwise. */
+            height: calc(100dvh / var(--ui-scale, 1));
             position: fixed; top: 0; left: 0; overflow: hidden;
             border-radius: 0;
             border: none;
@@ -1625,6 +1643,46 @@
         }
         .clubs-member-crown { font-size: 11px; flex-shrink: 0; }
 
+        /* ── Member moderation row (role badge + action toolbar) ──
+           Previously unstyled — a raw browser-default <select> and bare
+           buttons with no spacing/hover treatment, sitting oddly next to
+           the rest of the (fully themed) member row. */
+        .clubs-member-role-badge {
+            font-size: 11px; flex-shrink: 0;
+            filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
+        }
+        .clubs-member-actions {
+            display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+        }
+        .clubs-member-role-select {
+            appearance: none; -webkit-appearance: none;
+            font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.5px;
+            color: #c8a460; text-transform: uppercase;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(140,95,25,0.4); border-radius: 4px;
+            padding: 4px 20px 4px 8px;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6' viewBox='0 0 8 6'%3E%3Cpath fill='%23c8a460' d='M0 0h8L4 6z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 7px center;
+            transition: border-color 0.15s, background-color 0.15s;
+        }
+        .clubs-member-role-select:hover { border-color: rgba(200,150,60,0.7); background-color: rgba(0,0,0,0.5); }
+        .clubs-member-role-select option { background: #1a0f05; color: #d4b878; font-family: 'Cinzel', serif; }
+        .clubs-member-action-btn {
+            width: 24px; height: 24px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; line-height: 1;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(140,95,25,0.4); border-radius: 4px;
+            color: #c8a460; cursor: pointer;
+            transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
+        }
+        .clubs-member-action-btn:hover {
+            border-color: rgba(220,170,60,0.75); background-color: rgba(255,200,80,0.1);
+            transform: translateY(-1px);
+        }
+        .clubs-member-action-btn:active { transform: translateY(0); }
+
         /* ── Club chat (broadcast-only, nothing persisted) ── */
         .club-chat-box {
             border: 1px solid rgba(100,65,20,0.25); border-radius: 8px;
@@ -2397,9 +2455,14 @@
         /* ── End Screen ── */
         #screen-end {
             justify-content: center !important;
+            /* Was a hardcoded warm-brown gradient regardless of theme —
+               driven by variables now so each theme can override it the
+               same way profile/changelog chrome already do, instead of
+               the win/defeat screen being the one screen that never
+               changed look no matter what theme was active. */
             background: radial-gradient(ellipse at 50% 40%,
-                rgba(30,12,2,0.97) 0%,
-                rgba(5,2,0,0.99) 100%) !important;
+                var(--end-bg1, rgba(30,12,2,0.97)) 0%,
+                var(--end-bg2, rgba(5,2,0,0.99)) 100%) !important;
             position: relative;
             overflow: hidden;
         }
